@@ -24,11 +24,13 @@ import java.sql.{Date, Timestamp}
 import org.apache.parquet.filter2.predicate.{FilterApi, FilterPredicate, Operators}
 import org.apache.parquet.filter2.predicate.FilterApi._
 import org.apache.parquet.filter2.predicate.Operators.{Column => _, _}
+import org.apache.parquet.schema.MessageType
 
 import org.apache.spark.SparkException
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.optimizer.InferFiltersFromConstraints
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.execution.datasources.{DataSourceStrategy, HadoopFsRelation, LogicalRelation}
 import org.apache.spark.sql.functions._
@@ -58,10 +60,13 @@ import org.apache.spark.util.{AccumulatorContext, AccumulatorV2}
  */
 class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContext {
 
-  private lazy val parquetFilters =
-    new ParquetFilters(conf.parquetFilterPushDownDate, conf.parquetFilterPushDownTimestamp,
+  private def createParquetFilters(
+      schema: MessageType,
+      caseSensitive: Option[Boolean] = None): ParquetFilters =
+    new ParquetFilters(schema, conf.parquetFilterPushDownDate, conf.parquetFilterPushDownTimestamp,
       conf.parquetFilterPushDownDecimal, conf.parquetFilterPushDownStringStartWith,
-      conf.parquetFilterPushDownInFilterThreshold, conf.caseSensitiveAnalysis)
+      conf.parquetFilterPushDownInFilterThreshold,
+      caseSensitive.getOrElse(conf.caseSensitiveAnalysis))
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -91,6 +96,10 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
       SQLConf.PARQUET_FILTER_PUSHDOWN_TIMESTAMP_ENABLED.key -> "true",
       SQLConf.PARQUET_FILTER_PUSHDOWN_DECIMAL_ENABLED.key -> "true",
       SQLConf.PARQUET_FILTER_PUSHDOWN_STRING_STARTSWITH_ENABLED.key -> "true",
+      // Disable adding filters from constraints because it adds, for instance,
+      // is-not-null to pushed filters, which makes it hard to test if the pushed
+      // filter is expected or not (this had to be fixed with SPARK-13495).
+      SQLConf.OPTIMIZER_EXCLUDED_RULES.key -> InferFiltersFromConstraints.ruleName,
       SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
         val query = df
           .select(output.map(e => Column(e)): _*)
@@ -108,14 +117,19 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
         val (_, selectedFilters, _) =
           DataSourceStrategy.selectFilters(maybeRelation.get, maybeAnalyzedPredicate.toSeq)
         assert(selectedFilters.nonEmpty, "No filter is pushed down")
-
-        selectedFilters.foreach { pred =>
-          val maybeFilter = parquetFilters.createFilter(
-            new SparkToParquetSchemaConverter(conf).convert(df.schema), pred)
+        val schema = new SparkToParquetSchemaConverter(conf).convert(df.schema)
+        val parquetFilters = createParquetFilters(schema)
+        // In this test suite, all the simple predicates are convertible here.
+        assert(parquetFilters.convertibleFilters(selectedFilters) == selectedFilters)
+        val pushedParquetFilters = selectedFilters.map { pred =>
+          val maybeFilter = parquetFilters.createFilter(pred)
           assert(maybeFilter.isDefined, s"Couldn't generate filter predicate for $pred")
-          // Doesn't bother checking type parameters here (e.g. `Eq[Integer]`)
-          maybeFilter.exists(_.getClass === filterClass)
+          maybeFilter.get
         }
+        // Doesn't bother checking type parameters here (e.g. `Eq[Integer]`)
+        assert(pushedParquetFilters.exists(_.getClass === filterClass),
+          s"${pushedParquetFilters.map(_.getClass).toList} did not contain ${filterClass}.")
+
         checker(stripSparkFilter(query), expected)
     }
   }
@@ -515,50 +529,49 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
     withSQLConf(SQLConf.PARQUET_OUTPUT_TIMESTAMP_TYPE.key ->
       ParquetOutputTimestampType.INT96.toString) {
       withParquetDataFrame(millisData.map(i => Tuple1(i))) { implicit df =>
+        val schema = new SparkToParquetSchemaConverter(conf).convert(df.schema)
         assertResult(None) {
-          parquetFilters.createFilter(
-            new SparkToParquetSchemaConverter(conf).convert(df.schema), sources.IsNull("_1"))
+          createParquetFilters(schema).createFilter(sources.IsNull("_1"))
         }
       }
     }
   }
 
   test("filter pushdown - decimal") {
-    Seq(true, false).foreach { legacyFormat =>
+    Seq(
+      (false, Decimal.MAX_INT_DIGITS), // int32Writer
+      (false, Decimal.MAX_LONG_DIGITS), // int64Writer
+      (true, Decimal.MAX_LONG_DIGITS), // binaryWriterUsingUnscaledLong
+      (false, DecimalType.MAX_PRECISION) // binaryWriterUsingUnscaledBytes
+    ).foreach { case (legacyFormat, precision) =>
       withSQLConf(SQLConf.PARQUET_WRITE_LEGACY_FORMAT.key -> legacyFormat.toString) {
-        Seq(
-          s"a decimal(${Decimal.MAX_INT_DIGITS}, 2)",  // 32BitDecimalType
-          s"a decimal(${Decimal.MAX_LONG_DIGITS}, 2)", // 64BitDecimalType
-          "a decimal(38, 18)"                          // ByteArrayDecimalType
-        ).foreach { schemaDDL =>
-          val schema = StructType.fromDDL(schemaDDL)
-          val rdd =
-            spark.sparkContext.parallelize((1 to 4).map(i => Row(new java.math.BigDecimal(i))))
-          val dataFrame = spark.createDataFrame(rdd, schema)
-          testDecimalPushDown(dataFrame) { implicit df =>
-            assert(df.schema === schema)
-            checkFilterPredicate('a.isNull, classOf[Eq[_]], Seq.empty[Row])
-            checkFilterPredicate('a.isNotNull, classOf[NotEq[_]], (1 to 4).map(Row.apply(_)))
+        val schema = StructType.fromDDL(s"a decimal($precision, 2)")
+        val rdd =
+          spark.sparkContext.parallelize((1 to 4).map(i => Row(new java.math.BigDecimal(i))))
+        val dataFrame = spark.createDataFrame(rdd, schema)
+        testDecimalPushDown(dataFrame) { implicit df =>
+          assert(df.schema === schema)
+          checkFilterPredicate('a.isNull, classOf[Eq[_]], Seq.empty[Row])
+          checkFilterPredicate('a.isNotNull, classOf[NotEq[_]], (1 to 4).map(Row.apply(_)))
 
-            checkFilterPredicate('a === 1, classOf[Eq[_]], 1)
-            checkFilterPredicate('a <=> 1, classOf[Eq[_]], 1)
-            checkFilterPredicate('a =!= 1, classOf[NotEq[_]], (2 to 4).map(Row.apply(_)))
+          checkFilterPredicate('a === 1, classOf[Eq[_]], 1)
+          checkFilterPredicate('a <=> 1, classOf[Eq[_]], 1)
+          checkFilterPredicate('a =!= 1, classOf[NotEq[_]], (2 to 4).map(Row.apply(_)))
 
-            checkFilterPredicate('a < 2, classOf[Lt[_]], 1)
-            checkFilterPredicate('a > 3, classOf[Gt[_]], 4)
-            checkFilterPredicate('a <= 1, classOf[LtEq[_]], 1)
-            checkFilterPredicate('a >= 4, classOf[GtEq[_]], 4)
+          checkFilterPredicate('a < 2, classOf[Lt[_]], 1)
+          checkFilterPredicate('a > 3, classOf[Gt[_]], 4)
+          checkFilterPredicate('a <= 1, classOf[LtEq[_]], 1)
+          checkFilterPredicate('a >= 4, classOf[GtEq[_]], 4)
 
-            checkFilterPredicate(Literal(1) === 'a, classOf[Eq[_]], 1)
-            checkFilterPredicate(Literal(1) <=> 'a, classOf[Eq[_]], 1)
-            checkFilterPredicate(Literal(2) > 'a, classOf[Lt[_]], 1)
-            checkFilterPredicate(Literal(3) < 'a, classOf[Gt[_]], 4)
-            checkFilterPredicate(Literal(1) >= 'a, classOf[LtEq[_]], 1)
-            checkFilterPredicate(Literal(4) <= 'a, classOf[GtEq[_]], 4)
+          checkFilterPredicate(Literal(1) === 'a, classOf[Eq[_]], 1)
+          checkFilterPredicate(Literal(1) <=> 'a, classOf[Eq[_]], 1)
+          checkFilterPredicate(Literal(2) > 'a, classOf[Lt[_]], 1)
+          checkFilterPredicate(Literal(3) < 'a, classOf[Gt[_]], 4)
+          checkFilterPredicate(Literal(1) >= 'a, classOf[LtEq[_]], 1)
+          checkFilterPredicate(Literal(4) <= 'a, classOf[GtEq[_]], 4)
 
-            checkFilterPredicate(!('a < 4), classOf[GtEq[_]], 4)
-            checkFilterPredicate('a < 2 || 'a > 3, classOf[Operators.Or], Seq(Row(1), Row(4)))
-          }
+          checkFilterPredicate(!('a < 4), classOf[GtEq[_]], 4)
+          checkFilterPredicate('a < 2 || 'a > 3, classOf[Operators.Or], Seq(Row(1), Row(4)))
         }
       }
     }
@@ -580,24 +593,24 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
     assert(decimal.scale() === scale)
     assert(decimal1.scale() === scale + 1)
 
+    val parquetFilters = createParquetFilters(parquetSchema)
     assertResult(Some(lt(intColumn("cdecimal1"), 1000: Integer))) {
-      parquetFilters.createFilter(parquetSchema, sources.LessThan("cdecimal1", decimal))
+      parquetFilters.createFilter(sources.LessThan("cdecimal1", decimal))
     }
     assertResult(None) {
-      parquetFilters.createFilter(parquetSchema, sources.LessThan("cdecimal1", decimal1))
+      parquetFilters.createFilter(sources.LessThan("cdecimal1", decimal1))
     }
 
     assertResult(Some(lt(longColumn("cdecimal2"), 1000L: java.lang.Long))) {
-      parquetFilters.createFilter(parquetSchema, sources.LessThan("cdecimal2", decimal))
+      parquetFilters.createFilter(sources.LessThan("cdecimal2", decimal))
     }
     assertResult(None) {
-      parquetFilters.createFilter(parquetSchema, sources.LessThan("cdecimal2", decimal1))
+      parquetFilters.createFilter(sources.LessThan("cdecimal2", decimal1))
     }
 
-    assert(parquetFilters.createFilter(
-      parquetSchema, sources.LessThan("cdecimal3", decimal)).isDefined)
+    assert(parquetFilters.createFilter(sources.LessThan("cdecimal3", decimal)).isDefined)
     assertResult(None) {
-      parquetFilters.createFilter(parquetSchema, sources.LessThan("cdecimal3", decimal1))
+      parquetFilters.createFilter(sources.LessThan("cdecimal3", decimal1))
     }
   }
 
@@ -750,7 +763,7 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
     }
   }
 
-  test("SPARK-12218 Converting conjunctions into Parquet filter predicates") {
+  test("SPARK-12218 and SPARK-25559 Converting conjunctions into Parquet filter predicates") {
     val schema = StructType(Seq(
       StructField("a", IntegerType, nullable = false),
       StructField("b", StringType, nullable = true),
@@ -758,33 +771,316 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
     ))
 
     val parquetSchema = new SparkToParquetSchemaConverter(conf).convert(schema)
-
+    val parquetFilters = createParquetFilters(parquetSchema)
     assertResult(Some(and(
       lt(intColumn("a"), 10: Integer),
       gt(doubleColumn("c"), 1.5: java.lang.Double)))
     ) {
       parquetFilters.createFilter(
-        parquetSchema,
         sources.And(
           sources.LessThan("a", 10),
           sources.GreaterThan("c", 1.5D)))
     }
 
-    assertResult(None) {
+    // Testing when `canRemoveOneSideInAnd == true`
+    // case sources.And(lhs, rhs) =>
+    //   ...
+    //     case (Some(lhsFilter), None) if canRemoveOneSideInAnd => Some(lhsFilter)
+    assertResult(Some(lt(intColumn("a"), 10: Integer))) {
       parquetFilters.createFilter(
-        parquetSchema,
         sources.And(
           sources.LessThan("a", 10),
           sources.StringContains("b", "prefix")))
     }
 
+    // Testing when `canRemoveOneSideInAnd == true`
+    // case sources.And(lhs, rhs) =>
+    //   ...
+    //     case (None, Some(rhsFilter)) if canRemoveOneSideInAnd => Some(rhsFilter)
+    assertResult(Some(lt(intColumn("a"), 10: Integer))) {
+      parquetFilters.createFilter(
+        sources.And(
+          sources.StringContains("b", "prefix"),
+          sources.LessThan("a", 10)))
+    }
+
+    // Testing complex And conditions
+    assertResult(Some(
+      FilterApi.and(lt(intColumn("a"), 10: Integer), gt(intColumn("a"), 5: Integer)))) {
+      parquetFilters.createFilter(
+        sources.And(
+          sources.And(
+            sources.LessThan("a", 10),
+            sources.StringContains("b", "prefix")
+          ),
+          sources.GreaterThan("a", 5)))
+    }
+
+    // Testing complex And conditions
+    assertResult(Some(
+      FilterApi.and(gt(intColumn("a"), 5: Integer), lt(intColumn("a"), 10: Integer)))) {
+      parquetFilters.createFilter(
+        sources.And(
+          sources.GreaterThan("a", 5),
+          sources.And(
+            sources.StringContains("b", "prefix"),
+            sources.LessThan("a", 10)
+          )))
+    }
+
+    // Testing
+    // case sources.Not(pred) =>
+    //   createFilterHelper(nameToParquetField, pred, canRemoveOneSideInAnd = false)
+    //     .map(FilterApi.not)
+    //
+    // and
+    //
+    // Testing when `canRemoveOneSideInAnd == false`
+    // case sources.And(lhs, rhs) =>
+    //   ...
+    //     case (Some(lhsFilter), None) if canRemoveOneSideInAnd => Some(lhsFilter)
     assertResult(None) {
       parquetFilters.createFilter(
-        parquetSchema,
         sources.Not(
           sources.And(
             sources.GreaterThan("a", 1),
             sources.StringContains("b", "prefix"))))
+    }
+
+    // Testing
+    // case sources.Not(pred) =>
+    //   createFilterHelper(nameToParquetField, pred, canRemoveOneSideInAnd = false)
+    //     .map(FilterApi.not)
+    //
+    // and
+    //
+    // Testing when `canRemoveOneSideInAnd == false`
+    // case sources.And(lhs, rhs) =>
+    //   ...
+    //     case (None, Some(rhsFilter)) if canRemoveOneSideInAnd => Some(rhsFilter)
+    assertResult(None) {
+      parquetFilters.createFilter(
+        sources.Not(
+          sources.And(
+            sources.StringContains("b", "prefix"),
+            sources.GreaterThan("a", 1))))
+    }
+
+    // Testing
+    // case sources.Not(pred) =>
+    //   createFilterHelper(nameToParquetField, pred, canRemoveOneSideInAnd = false)
+    //     .map(FilterApi.not)
+    //
+    // and
+    //
+    // Testing passing `canRemoveOneSideInAnd = false` into
+    // case sources.And(lhs, rhs) =>
+    //   val lhsFilterOption = createFilterHelper(nameToParquetField, lhs, canRemoveOneSideInAnd)
+    assertResult(None) {
+      parquetFilters.createFilter(
+        sources.Not(
+          sources.And(
+            sources.And(
+              sources.GreaterThan("a", 1),
+              sources.StringContains("b", "prefix")),
+            sources.GreaterThan("a", 2))))
+    }
+
+    // Testing
+    // case sources.Not(pred) =>
+    //   createFilterHelper(nameToParquetField, pred, canRemoveOneSideInAnd = false)
+    //     .map(FilterApi.not)
+    //
+    // and
+    //
+    // Testing passing `canRemoveOneSideInAnd = false` into
+    // case sources.And(lhs, rhs) =>
+    //   val rhsFilterOption = createFilterHelper(nameToParquetField, rhs, canRemoveOneSideInAnd)
+    assertResult(None) {
+      parquetFilters.createFilter(
+        sources.Not(
+          sources.And(
+            sources.GreaterThan("a", 2),
+            sources.And(
+              sources.GreaterThan("a", 1),
+              sources.StringContains("b", "prefix")))))
+    }
+  }
+
+  test("SPARK-27699 Converting disjunctions into Parquet filter predicates") {
+    val schema = StructType(Seq(
+      StructField("a", IntegerType, nullable = false),
+      StructField("b", StringType, nullable = true),
+      StructField("c", DoubleType, nullable = true)
+    ))
+
+    val parquetSchema = new SparkToParquetSchemaConverter(conf).convert(schema)
+    val parquetFilters = createParquetFilters(parquetSchema)
+    // Testing
+    // case sources.Or(lhs, rhs) =>
+    //   ...
+    //     lhsFilter <- createFilterHelper(nameToParquetField, lhs, canRemoveOneSideInAnd = true)
+    assertResult(Some(
+      FilterApi.or(gt(intColumn("a"), 1: Integer), gt(intColumn("a"), 2: Integer)))) {
+      parquetFilters.createFilter(
+        sources.Or(
+          sources.And(
+            sources.GreaterThan("a", 1),
+            sources.StringContains("b", "prefix")),
+          sources.GreaterThan("a", 2)))
+    }
+
+    // Testing
+    // case sources.Or(lhs, rhs) =>
+    //   ...
+    //     rhsFilter <- createFilterHelper(nameToParquetField, rhs, canRemoveOneSideInAnd = true)
+    assertResult(Some(
+      FilterApi.or(gt(intColumn("a"), 2: Integer), gt(intColumn("a"), 1: Integer)))) {
+      parquetFilters.createFilter(
+        sources.Or(
+          sources.GreaterThan("a", 2),
+          sources.And(
+            sources.GreaterThan("a", 1),
+            sources.StringContains("b", "prefix"))))
+    }
+
+    // Testing
+    // case sources.Or(lhs, rhs) =>
+    //   ...
+    //     lhsFilter <- createFilterHelper(nameToParquetField, lhs, canRemoveOneSideInAnd = true)
+    //     rhsFilter <- createFilterHelper(nameToParquetField, rhs, canRemoveOneSideInAnd = true)
+    assertResult(Some(
+      FilterApi.or(gt(intColumn("a"), 1: Integer), lt(intColumn("a"), 0: Integer)))) {
+      parquetFilters.createFilter(
+        sources.Or(
+          sources.And(
+            sources.GreaterThan("a", 1),
+            sources.StringContains("b", "prefix")),
+          sources.And(
+            sources.LessThan("a", 0),
+            sources.StringContains("b", "foobar"))))
+    }
+  }
+
+  test("SPARK-27698 Convertible Parquet filter predicates") {
+    val schema = StructType(Seq(
+      StructField("a", IntegerType, nullable = false),
+      StructField("b", StringType, nullable = true),
+      StructField("c", DoubleType, nullable = true)
+    ))
+
+    val parquetSchema = new SparkToParquetSchemaConverter(conf).convert(schema)
+    val parquetFilters = createParquetFilters(parquetSchema)
+    assertResult(Seq(sources.And(sources.LessThan("a", 10), sources.GreaterThan("c", 1.5D)))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.And(
+          sources.LessThan("a", 10),
+          sources.GreaterThan("c", 1.5D))))
+    }
+
+    assertResult(Seq(sources.LessThan("a", 10))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.And(
+          sources.LessThan("a", 10),
+          sources.StringContains("b", "prefix"))))
+    }
+
+    assertResult(Seq(sources.LessThan("a", 10))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.And(
+          sources.StringContains("b", "prefix"),
+          sources.LessThan("a", 10))))
+    }
+
+    // Testing complex And conditions
+    assertResult(Seq(sources.And(sources.LessThan("a", 10), sources.GreaterThan("a", 5)))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.And(
+          sources.And(
+            sources.LessThan("a", 10),
+            sources.StringContains("b", "prefix")
+          ),
+          sources.GreaterThan("a", 5))))
+    }
+
+    // Testing complex And conditions
+    assertResult(Seq(sources.And(sources.GreaterThan("a", 5), sources.LessThan("a", 10)))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.And(
+          sources.GreaterThan("a", 5),
+          sources.And(
+            sources.StringContains("b", "prefix"),
+            sources.LessThan("a", 10)
+          ))))
+    }
+
+    // Testing complex And conditions
+    assertResult(Seq(sources.Or(sources.GreaterThan("a", 1), sources.GreaterThan("a", 2)))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.Or(
+          sources.And(
+            sources.GreaterThan("a", 1),
+            sources.StringContains("b", "prefix")),
+          sources.GreaterThan("a", 2))))
+    }
+
+    // Testing complex And/Or conditions, the And condition under Or condition can't be pushed down.
+    assertResult(Seq(sources.And(sources.LessThan("a", 10),
+      sources.Or(sources.GreaterThan("a", 1), sources.GreaterThan("a", 2))))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.And(
+          sources.LessThan("a", 10),
+          sources.Or(
+            sources.And(
+              sources.GreaterThan("a", 1),
+              sources.StringContains("b", "prefix")),
+            sources.GreaterThan("a", 2)))))
+    }
+
+    assertResult(Seq(sources.Or(sources.GreaterThan("a", 2), sources.GreaterThan("c", 1.1)))) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.Or(
+          sources.GreaterThan("a", 2),
+          sources.And(
+            sources.GreaterThan("c", 1.1),
+            sources.StringContains("b", "prefix")))))
+    }
+
+    // Testing complex Not conditions.
+    assertResult(Seq.empty) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.Not(
+          sources.And(
+            sources.GreaterThan("a", 1),
+            sources.StringContains("b", "prefix")))))
+    }
+
+    assertResult(Seq.empty) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.Not(
+          sources.And(
+            sources.StringContains("b", "prefix"),
+            sources.GreaterThan("a", 1)))))
+    }
+
+    assertResult(Seq.empty) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.Not(
+          sources.And(
+            sources.And(
+              sources.GreaterThan("a", 1),
+              sources.StringContains("b", "prefix")),
+            sources.GreaterThan("a", 2)))))
+    }
+
+    assertResult(Seq.empty) {
+      parquetFilters.convertibleFilters(
+        Seq(sources.Not(
+          sources.And(
+            sources.GreaterThan("a", 2),
+            sources.And(
+              sources.GreaterThan("a", 1),
+              sources.StringContains("b", "prefix"))))))
     }
   }
 
@@ -931,27 +1227,26 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
 
       checkFilterPredicate(
         !'_1.startsWith("").asInstanceOf[Predicate],
-        classOf[UserDefinedByInstance[_, _]],
+        classOf[Operators.Not],
         Seq().map(Row(_)))
 
       Seq("2", "2s", "2st", "2str", "2str2").foreach { prefix =>
         checkFilterPredicate(
           !'_1.startsWith(prefix).asInstanceOf[Predicate],
-          classOf[UserDefinedByInstance[_, _]],
+          classOf[Operators.Not],
           Seq("1str1", "3str3", "4str4").map(Row(_)))
       }
 
       Seq("2S", "null", "2str22").foreach { prefix =>
         checkFilterPredicate(
           !'_1.startsWith(prefix).asInstanceOf[Predicate],
-          classOf[UserDefinedByInstance[_, _]],
+          classOf[Operators.Not],
           Seq("1str1", "2str2", "3str3", "4str4").map(Row(_)))
       }
 
+      val schema = new SparkToParquetSchemaConverter(conf).convert(df.schema)
       assertResult(None) {
-        parquetFilters.createFilter(
-          new SparkToParquetSchemaConverter(conf).convert(df.schema),
-          sources.StringStartsWith("_1", null))
+        createParquetFilters(schema).createFilter(sources.StringStartsWith("_1", null))
       }
     }
 
@@ -968,18 +1263,18 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
     ))
 
     val parquetSchema = new SparkToParquetSchemaConverter(conf).convert(schema)
-
+    val parquetFilters = createParquetFilters(parquetSchema)
     assertResult(Some(FilterApi.eq(intColumn("a"), null: Integer))) {
-      parquetFilters.createFilter(parquetSchema, sources.In("a", Array(null)))
+      parquetFilters.createFilter(sources.In("a", Array(null)))
     }
 
     assertResult(Some(FilterApi.eq(intColumn("a"), 10: Integer))) {
-      parquetFilters.createFilter(parquetSchema, sources.In("a", Array(10)))
+      parquetFilters.createFilter(sources.In("a", Array(10)))
     }
 
     // Remove duplicates
     assertResult(Some(FilterApi.eq(intColumn("a"), 10: Integer))) {
-      parquetFilters.createFilter(parquetSchema, sources.In("a", Array(10, 10)))
+      parquetFilters.createFilter(sources.In("a", Array(10, 10)))
     }
 
     assertResult(Some(or(or(
@@ -987,12 +1282,12 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
       FilterApi.eq(intColumn("a"), 20: Integer)),
       FilterApi.eq(intColumn("a"), 30: Integer)))
     ) {
-      parquetFilters.createFilter(parquetSchema, sources.In("a", Array(10, 20, 30)))
+      parquetFilters.createFilter(sources.In("a", Array(10, 20, 30)))
     }
 
-    assert(parquetFilters.createFilter(parquetSchema, sources.In("a",
+    assert(parquetFilters.createFilter(sources.In("a",
       Range(0, conf.parquetFilterPushDownInFilterThreshold).toArray)).isDefined)
-    assert(parquetFilters.createFilter(parquetSchema, sources.In("a",
+    assert(parquetFilters.createFilter(sources.In("a",
       Range(0, conf.parquetFilterPushDownInFilterThreshold + 1).toArray)).isEmpty)
 
     import testImplicits._
@@ -1024,25 +1319,20 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
   }
 
   test("SPARK-25207: Case-insensitive field resolution for pushdown when reading parquet") {
-    def createParquetFilter(caseSensitive: Boolean): ParquetFilters = {
-      new ParquetFilters(conf.parquetFilterPushDownDate, conf.parquetFilterPushDownTimestamp,
-        conf.parquetFilterPushDownDecimal, conf.parquetFilterPushDownStringStartWith,
-        conf.parquetFilterPushDownInFilterThreshold, caseSensitive)
-    }
-    val caseSensitiveParquetFilters = createParquetFilter(caseSensitive = true)
-    val caseInsensitiveParquetFilters = createParquetFilter(caseSensitive = false)
-
     def testCaseInsensitiveResolution(
         schema: StructType,
         expected: FilterPredicate,
         filter: sources.Filter): Unit = {
       val parquetSchema = new SparkToParquetSchemaConverter(conf).convert(schema)
-
+      val caseSensitiveParquetFilters =
+        createParquetFilters(parquetSchema, caseSensitive = Some(true))
+      val caseInsensitiveParquetFilters =
+        createParquetFilters(parquetSchema, caseSensitive = Some(false))
       assertResult(Some(expected)) {
-        caseInsensitiveParquetFilters.createFilter(parquetSchema, filter)
+        caseInsensitiveParquetFilters.createFilter(filter)
       }
       assertResult(None) {
-        caseSensitiveParquetFilters.createFilter(parquetSchema, filter)
+        caseSensitiveParquetFilters.createFilter(filter)
       }
     }
 
@@ -1099,9 +1389,10 @@ class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSQLContex
     val dupFieldSchema = StructType(
       Seq(StructField("cint", IntegerType), StructField("cINT", IntegerType)))
     val dupParquetSchema = new SparkToParquetSchemaConverter(conf).convert(dupFieldSchema)
+    val dupCaseInsensitiveParquetFilters =
+      createParquetFilters(dupParquetSchema, caseSensitive = Some(false))
     assertResult(None) {
-      caseInsensitiveParquetFilters.createFilter(
-        dupParquetSchema, sources.EqualTo("CINT", 1000))
+      dupCaseInsensitiveParquetFilters.createFilter(sources.EqualTo("CINT", 1000))
     }
   }
 

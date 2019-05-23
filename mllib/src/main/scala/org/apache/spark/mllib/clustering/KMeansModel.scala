@@ -103,7 +103,7 @@ class KMeansModel (@Since("1.0.0") val clusterCenters: Array[Vector],
     val cost = data.map(p =>
       distanceMeasureInstance.pointCost(bcCentersWithNorm.value, new VectorWithNorm(p)))
       .sum()
-    bcCentersWithNorm.destroy(blocking = false)
+    bcCentersWithNorm.destroy()
     cost
   }
 
@@ -112,8 +112,11 @@ class KMeansModel (@Since("1.0.0") val clusterCenters: Array[Vector],
   override def save(sc: SparkContext, path: String): Unit = {
     KMeansModel.SaveLoadV2_0.save(sc, this, path)
   }
+<<<<<<< HEAD
 
   override protected def formatVersion: String = "2.0"
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 }
 
 @Since("1.4.0")

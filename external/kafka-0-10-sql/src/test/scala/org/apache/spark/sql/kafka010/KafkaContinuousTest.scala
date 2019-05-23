@@ -21,7 +21,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.apache.spark.SparkContext
 import org.apache.spark.scheduler.{SparkListener, SparkListenerTaskEnd, SparkListenerTaskStart}
+<<<<<<< HEAD
 import org.apache.spark.sql.execution.datasources.v2.StreamingDataSourceV2Relation
+=======
+import org.apache.spark.sql.execution.datasources.v2.ContinuousScanExec
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.execution.streaming.StreamExecution
 import org.apache.spark.sql.execution.streaming.continuous.ContinuousExecution
 import org.apache.spark.sql.streaming.Trigger
@@ -30,7 +34,6 @@ import org.apache.spark.sql.test.TestSparkSession
 // Trait to configure StreamTest for kafka continuous execution tests.
 trait KafkaContinuousTest extends KafkaSourceTest {
   override val defaultTrigger = Trigger.Continuous(1000)
-  override val defaultUseV2Sink = true
 
   // We need more than the default local[2] to be able to schedule all partitions simultaneously.
   override protected def createSparkSession = new TestSparkSession(
@@ -46,15 +49,22 @@ trait KafkaContinuousTest extends KafkaSourceTest {
     testUtils.addPartitions(topic, newCount)
     eventually(timeout(streamingTimeout)) {
       assert(
+<<<<<<< HEAD
         query.lastExecution.logical.collectFirst {
           case StreamingDataSourceV2Relation(_, _, _, r: KafkaContinuousReader) => r
+=======
+        query.lastExecution.executedPlan.collectFirst {
+          case scan: ContinuousScanExec
+              if scan.stream.isInstanceOf[KafkaContinuousStream] =>
+            scan.stream.asInstanceOf[KafkaContinuousStream]
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
         }.exists(_.knownPartitions.size == newCount),
         s"query never reconfigured to $newCount partitions")
     }
   }
 
   // Continuous processing tasks end asynchronously, so test that they actually end.
-  private val tasksEndedListener = new SparkListener() {
+  private class TasksEndedListener extends SparkListener {
     val activeTaskIdCount = new AtomicInteger(0)
 
     override def onTaskStart(start: SparkListenerTaskStart): Unit = {
@@ -65,6 +75,8 @@ trait KafkaContinuousTest extends KafkaSourceTest {
       activeTaskIdCount.decrementAndGet()
     }
   }
+
+  private val tasksEndedListener = new TasksEndedListener()
 
   override def beforeEach(): Unit = {
     super.beforeEach()

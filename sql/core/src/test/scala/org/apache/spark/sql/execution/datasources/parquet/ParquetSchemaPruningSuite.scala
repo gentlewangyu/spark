@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.parquet
 
+<<<<<<< HEAD
 import java.io.File
 
 import org.scalactic.Equality
@@ -400,20 +401,13 @@ class ParquetSchemaPruningSuite
     // themselves are irrelevant, and should be checked elsewhere as needed
     df.collect()
   }
+=======
+import org.apache.spark.sql.execution.datasources.SchemaPruningSuite
+import org.apache.spark.sql.internal.SQLConf
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
-  private def checkScanSchemata(df: DataFrame, expectedSchemaCatalogStrings: String*): Unit = {
-    val fileSourceScanSchemata =
-      df.queryExecution.executedPlan.collect {
-        case scan: FileSourceScanExec => scan.requiredSchema
-      }
-    assert(fileSourceScanSchemata.size === expectedSchemaCatalogStrings.size,
-      s"Found ${fileSourceScanSchemata.size} file sources in dataframe, " +
-        s"but expected $expectedSchemaCatalogStrings")
-    fileSourceScanSchemata.zip(expectedSchemaCatalogStrings).foreach {
-      case (scanSchema, expectedScanSchemaCatalogString) =>
-        val expectedScanSchema = CatalystSqlParser.parseDataType(expectedScanSchemaCatalogString)
-        implicit val equality = schemaEquality
-        assert(scanSchema === expectedScanSchema)
-    }
-  }
+class ParquetSchemaPruningSuite extends SchemaPruningSuite {
+  override protected val dataSourceName: String = "parquet"
+  override protected val vectorizedReaderEnabledKey: String =
+    SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key
 }

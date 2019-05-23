@@ -70,6 +70,11 @@
       url: sql-migration-guide-upgrade.html
     - text: Compatibility with Apache Hive
       url: sql-migration-guide-hive-compatibility.html
+<<<<<<< HEAD
+=======
+    - text: SQL Reserved/Non-Reserved Keywords
+      url: sql-reserved-and-non-reserved-keywords.html
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 - text: Reference
   url: sql-reference.html
   subitems:

@@ -19,21 +19,31 @@ package org.apache.spark.sql.sources.v2.reader;
 
 import java.io.Serializable;
 
-import org.apache.spark.annotation.InterfaceStability;
+import org.apache.spark.annotation.Evolving;
 
 /**
+<<<<<<< HEAD
  * An input partition returned by {@link DataSourceReader#planInputPartitions()} and is
  * responsible for creating the actual data reader of one RDD partition.
  * The relationship between {@link InputPartition} and {@link InputPartitionReader}
  * is similar to the relationship between {@link Iterable} and {@link java.util.Iterator}.
+=======
+ * A serializable representation of an input partition returned by
+ * {@link Batch#planInputPartitions()} and the corresponding ones in streaming .
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
  *
  * Note that {@link InputPartition}s will be serialized and sent to executors, then
  * {@link InputPartitionReader}s will be created on executors to do the actual reading. So
  * {@link InputPartition} must be serializable while {@link InputPartitionReader} doesn't need to
  * be.
  */
+<<<<<<< HEAD
 @InterfaceStability.Evolving
 public interface InputPartition<T> extends Serializable {
+=======
+@Evolving
+public interface InputPartition extends Serializable {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
   /**
    * The preferred locations where the input partition reader returned by this partition can run

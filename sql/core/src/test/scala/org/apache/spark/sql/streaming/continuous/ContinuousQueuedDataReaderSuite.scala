@@ -27,9 +27,14 @@ import org.apache.spark.rpc.{RpcEndpointRef, RpcEnv}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{GenericInternalRow, UnsafeProjection, UnsafeRow}
 import org.apache.spark.sql.execution.streaming.continuous._
+<<<<<<< HEAD
 import org.apache.spark.sql.sources.v2.reader.InputPartition
 import org.apache.spark.sql.sources.v2.reader.streaming.{ContinuousInputPartitionReader, ContinuousReader, PartitionOffset}
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter
+=======
+import org.apache.spark.sql.sources.v2.reader.streaming.{ContinuousPartitionReader, ContinuousStream, PartitionOffset}
+import org.apache.spark.sql.sources.v2.writer.streaming.StreamingWrite
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.streaming.StreamTest
 import org.apache.spark.sql.types.{DataType, IntegerType}
 
@@ -44,8 +49,13 @@ class ContinuousQueuedDataReaderSuite extends StreamTest with MockitoSugar {
   override def beforeEach(): Unit = {
     super.beforeEach()
     epochEndpoint = EpochCoordinatorRef.create(
+<<<<<<< HEAD
       mock[StreamWriter],
       mock[ContinuousReader],
+=======
+      mock[StreamingWrite],
+      mock[ContinuousStream],
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       mock[ContinuousExecution],
       coordinatorId,
       startEpoch,

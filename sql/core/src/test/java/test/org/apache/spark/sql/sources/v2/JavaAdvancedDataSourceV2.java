@@ -24,20 +24,42 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericInternalRow;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.GreaterThan;
+<<<<<<< HEAD
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
 import org.apache.spark.sql.sources.v2.DataSourceV2;
 import org.apache.spark.sql.sources.v2.ReadSupport;
+=======
+import org.apache.spark.sql.sources.v2.Table;
+import org.apache.spark.sql.sources.v2.TableProvider;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.sources.v2.reader.*;
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+<<<<<<< HEAD
 public class JavaAdvancedDataSourceV2 implements DataSourceV2, ReadSupport {
 
   public class Reader implements DataSourceReader, SupportsPushDownRequiredColumns,
     SupportsPushDownFilters {
+=======
+public class JavaAdvancedDataSourceV2 implements TableProvider {
 
-    // Exposed for testing.
-    public StructType requiredSchema = new StructType().add("i", "int").add("j", "int");
-    public Filter[] filters = new Filter[0];
+  @Override
+  public Table getTable(CaseInsensitiveStringMap options) {
+    return new JavaSimpleBatchTable() {
+      @Override
+      public ScanBuilder newScanBuilder(CaseInsensitiveStringMap options) {
+        return new AdvancedScanBuilder();
+      }
+    };
+  }
+
+  static class AdvancedScanBuilder implements ScanBuilder, Scan,
+    SupportsPushDownFilters, SupportsPushDownRequiredColumns {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
+
+    private StructType requiredSchema = new StructType().add("i", "int").add("j", "int");
+    private Filter[] filters = new Filter[0];
 
     @Override
     public StructType readSchema() {
@@ -79,6 +101,7 @@ public class JavaAdvancedDataSourceV2 implements DataSourceV2, ReadSupport {
     }
 
     @Override
+<<<<<<< HEAD
     public List<InputPartition<InternalRow>> planInputPartitions() {
       List<InputPartition<InternalRow>> res = new ArrayList<>();
 
@@ -104,6 +127,59 @@ public class JavaAdvancedDataSourceV2 implements DataSourceV2, ReadSupport {
       }
 
       return res;
+=======
+    public Scan build() {
+      return this;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
+    }
+
+    @Override
+    public Batch toBatch() {
+      return new AdvancedBatch(requiredSchema, filters);
+    }
+  }
+
+  public static class AdvancedBatch implements Batch {
+    // Exposed for testing.
+    public StructType requiredSchema;
+    public Filter[] filters;
+
+    AdvancedBatch(StructType requiredSchema, Filter[] filters) {
+      this.requiredSchema = requiredSchema;
+      this.filters = filters;
+    }
+
+    @Override
+    public InputPartition[] planInputPartitions() {
+      List<InputPartition> res = new ArrayList<>();
+
+      Integer lowerBound = null;
+      for (Filter filter : filters) {
+        if (filter instanceof GreaterThan) {
+          GreaterThan f = (GreaterThan) filter;
+          if ("i".equals(f.attribute()) && f.value() instanceof Integer) {
+            lowerBound = (Integer) f.value();
+            break;
+          }
+        }
+      }
+
+      if (lowerBound == null) {
+        res.add(new JavaRangeInputPartition(0, 5));
+        res.add(new JavaRangeInputPartition(5, 10));
+      } else if (lowerBound < 4) {
+        res.add(new JavaRangeInputPartition(lowerBound + 1, 5));
+        res.add(new JavaRangeInputPartition(5, 10));
+      } else if (lowerBound < 9) {
+        res.add(new JavaRangeInputPartition(lowerBound + 1, 10));
+      }
+
+      return res.stream().toArray(InputPartition[]::new);
+    }
+
+    @Override
+    public PartitionReaderFactory createReaderFactory() {
+      return new AdvancedReaderFactory(requiredSchema);
     }
   }
 
@@ -148,10 +224,13 @@ public class JavaAdvancedDataSourceV2 implements DataSourceV2, ReadSupport {
 
     }
   }
+<<<<<<< HEAD
 
 
   @Override
   public DataSourceReader createReader(DataSourceOptions options) {
     return new Reader();
   }
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 }

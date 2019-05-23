@@ -2,6 +2,24 @@
 layout: global
 title: Hive Tables
 displayTitle: Hive Tables
+<<<<<<< HEAD
+=======
+license: |
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+ 
+     http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 ---
 
 * Table of contents
@@ -74,7 +92,11 @@ creating table, you can create a table using storage handler at Hive side, and u
     <td><code>inputFormat, outputFormat</code></td>
     <td>
       These 2 options specify the name of a corresponding `InputFormat` and `OutputFormat` class as a string literal,
+<<<<<<< HEAD
       e.g. `org.apache.hadoop.hive.ql.io.orc.OrcInputFormat`. These 2 options must be appeared in pair, and you can not
+=======
+      e.g. `org.apache.hadoop.hive.ql.io.orc.OrcInputFormat`. These 2 options must be appeared in a pair, and you can not
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       specify them if you already specified the `fileFormat` option.
     </td>
   </tr>
@@ -115,7 +137,11 @@ The following options can be used to configure the version of Hive that is used 
     <td><code>1.2.1</code></td>
     <td>
       Version of the Hive metastore. Available
+<<<<<<< HEAD
       options are <code>0.12.0</code> through <code>2.3.3</code>.
+=======
+      options are <code>0.12.0</code> through <code>2.3.5</code> and <code>3.1.0</code> through <code>3.1.1</code>.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     </td>
   </tr>
   <tr>

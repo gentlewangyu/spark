@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.expressions
 
-import org.apache.spark.annotation.InterfaceStability
+import org.apache.spark.annotation.Stable
 import org.apache.spark.sql.{AnalysisException, Column}
 import org.apache.spark.sql.catalyst.expressions._
 
@@ -28,7 +28,7 @@ import org.apache.spark.sql.catalyst.expressions._
  *
  * @since 1.4.0
  */
-@InterfaceStability.Stable
+@Stable
 class WindowSpec private[sql](
     partitionSpec: Seq[Expression],
     orderSpec: Seq[SortOrder],
@@ -210,6 +210,7 @@ class WindowSpec private[sql](
   }
 
   /**
+<<<<<<< HEAD
    * This function has been deprecated in Spark 2.4. See SPARK-25842 for more information.
    * @since 2.3.0
    */
@@ -222,6 +223,8 @@ class WindowSpec private[sql](
   }
 
   /**
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
    * Converts this [[WindowSpec]] into a [[Column]] with an aggregate expression.
    */
   private[sql] def withAggregate(aggregate: Column): Column = {

@@ -16,4 +16,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
 __version__ = "2.4.4.dev0"
+=======
+__version__ = "3.0.0.dev0"
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da

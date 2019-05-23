@@ -17,13 +17,21 @@
 
 package org.apache.spark.sql.util
 
+<<<<<<< HEAD
 import java.time.{LocalDateTime, ZoneOffset}
 import java.util.TimeZone
+=======
+import java.time.{LocalDateTime, ZoneId, ZoneOffset}
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import java.util.concurrent.TimeUnit
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.catalyst.plans.SQLHelper
+<<<<<<< HEAD
 import org.apache.spark.sql.catalyst.util.{DateTimeTestUtils, TimestampFormatter}
+=======
+import org.apache.spark.sql.catalyst.util.{DateTimeTestUtils, DateTimeUtils, TimestampFormatter}
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
 class TimestampFormatterSuite extends SparkFunSuite with SQLHelper {
 
@@ -38,12 +46,21 @@ class TimestampFormatterSuite extends SparkFunSuite with SQLHelper {
       "Antarctica/Vostok" -> 1543723872001234L,
       "Asia/Hong_Kong" -> 1543716672001234L,
       "Europe/Amsterdam" -> 1543741872001234L)
+<<<<<<< HEAD
     DateTimeTestUtils.outstandingTimezonesIds.foreach { timeZone =>
       val formatter = TimestampFormatter(
         "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
         TimeZone.getTimeZone(timeZone))
       val microsSinceEpoch = formatter.parse(localDate)
       assert(microsSinceEpoch === expectedMicros(timeZone))
+=======
+    DateTimeTestUtils.outstandingTimezonesIds.foreach { zoneId =>
+      val formatter = TimestampFormatter(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+        DateTimeUtils.getZoneId(zoneId))
+      val microsSinceEpoch = formatter.parse(localDate)
+      assert(microsSinceEpoch === expectedMicros(zoneId))
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     }
   }
 
@@ -58,12 +75,21 @@ class TimestampFormatterSuite extends SparkFunSuite with SQLHelper {
       "Antarctica/Vostok" -> "2018-12-02T16:11:12.001234",
       "Asia/Hong_Kong" -> "2018-12-02T18:11:12.001234",
       "Europe/Amsterdam" -> "2018-12-02T11:11:12.001234")
+<<<<<<< HEAD
     DateTimeTestUtils.outstandingTimezonesIds.foreach { timeZone =>
       val formatter = TimestampFormatter(
         "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
         TimeZone.getTimeZone(timeZone))
       val timestamp = formatter.format(microsSinceEpoch)
       assert(timestamp === expectedTimestamp(timeZone))
+=======
+    DateTimeTestUtils.outstandingTimezonesIds.foreach { zoneId =>
+      val formatter = TimestampFormatter(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+        DateTimeUtils.getZoneId(zoneId))
+      val timestamp = formatter.format(microsSinceEpoch)
+      assert(timestamp === expectedTimestamp(zoneId))
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     }
   }
 
@@ -79,8 +105,13 @@ class TimestampFormatterSuite extends SparkFunSuite with SQLHelper {
         1543749753123456L,
         2177456523456789L,
         11858049903010203L).foreach { micros =>
+<<<<<<< HEAD
         DateTimeTestUtils.outstandingTimezones.foreach { timeZone =>
           val formatter = TimestampFormatter(pattern, timeZone)
+=======
+        DateTimeTestUtils.outstandingZoneIds.foreach { zoneId =>
+          val formatter = TimestampFormatter(pattern, zoneId)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
           val timestamp = formatter.format(micros)
           val parsed = formatter.parse(timestamp)
           assert(micros === parsed)
@@ -100,8 +131,13 @@ class TimestampFormatterSuite extends SparkFunSuite with SQLHelper {
       "2018-12-02T11:22:33.123456",
       "2039-01-01T01:02:03.456789",
       "2345-10-07T22:45:03.010203").foreach { timestamp =>
+<<<<<<< HEAD
       DateTimeTestUtils.outstandingTimezones.foreach { timeZone =>
         val formatter = TimestampFormatter("yyyy-MM-dd'T'HH:mm:ss.SSSSSS", timeZone)
+=======
+      DateTimeTestUtils.outstandingZoneIds.foreach { zoneId =>
+        val formatter = TimestampFormatter("yyyy-MM-dd'T'HH:mm:ss.SSSSSS", zoneId)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
         val micros = formatter.parse(timestamp)
         val formatted = formatter.format(micros)
         assert(timestamp === formatted)
@@ -110,11 +146,27 @@ class TimestampFormatterSuite extends SparkFunSuite with SQLHelper {
   }
 
   test(" case insensitive parsing of am and pm") {
+<<<<<<< HEAD
     val formatter = TimestampFormatter(
       "yyyy MMM dd hh:mm:ss a",
       TimeZone.getTimeZone("UTC"))
+=======
+    val formatter = TimestampFormatter("yyyy MMM dd hh:mm:ss a", ZoneOffset.UTC)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     val micros = formatter.parse("2009 Mar 20 11:30:01 am")
     assert(micros === TimeUnit.SECONDS.toMicros(
       LocalDateTime.of(2009, 3, 20, 11, 30, 1).toEpochSecond(ZoneOffset.UTC)))
   }
+<<<<<<< HEAD
+=======
+
+  test("format fraction of second") {
+    val formatter = TimestampFormatter.getFractionFormatter(ZoneOffset.UTC)
+    assert(formatter.format(0) === "1970-01-01 00:00:00")
+    assert(formatter.format(1) === "1970-01-01 00:00:00.000001")
+    assert(formatter.format(1000) === "1970-01-01 00:00:00.001")
+    assert(formatter.format(900000) === "1970-01-01 00:00:00.9")
+    assert(formatter.format(1000000) === "1970-01-01 00:00:01")
+  }
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 }

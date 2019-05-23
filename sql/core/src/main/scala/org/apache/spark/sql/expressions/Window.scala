@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.expressions
 
-import org.apache.spark.annotation.InterfaceStability
+import org.apache.spark.annotation.Stable
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.catalyst.expressions._
 
@@ -39,7 +39,7 @@ import org.apache.spark.sql.catalyst.expressions._
  *
  * @since 1.4.0
  */
-@InterfaceStability.Stable
+@Stable
 object Window {
 
   /**
@@ -175,8 +175,8 @@ object Window {
    * directly.
    *
    * A range-based boundary is based on the actual value of the ORDER BY
-   * expression(s). An offset is used to alter the value of the ORDER BY expression, for
-   * instance if the current order by expression has a value of 10 and the lower bound offset
+   * expression(s). An offset is used to alter the value of the ORDER BY expression,
+   * for instance if the current ORDER BY expression has a value of 10 and the lower bound offset
    * is -3, the resulting lower bound for the current row will be 10 - 3 = 7. This however puts a
    * number of constraints on the ORDER BY expressions: there can be only one expression and this
    * expression must have a numerical data type. An exception can be made when the offset is
@@ -214,6 +214,7 @@ object Window {
     spec.rangeBetween(start, end)
   }
 
+<<<<<<< HEAD
   /**
    * This function has been deprecated in Spark 2.4. See SPARK-25842 for more information.
    * @since 2.3.0
@@ -223,6 +224,8 @@ object Window {
     spec.rangeBetween(start, end)
   }
 
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   private[sql] def spec: WindowSpec = {
     new WindowSpec(Seq.empty, Seq.empty, UnspecifiedFrame)
   }
@@ -243,5 +246,5 @@ object Window {
  *
  * @since 1.4.0
  */
-@InterfaceStability.Stable
+@Stable
 class Window private()  // So we can see Window in JavaDoc.

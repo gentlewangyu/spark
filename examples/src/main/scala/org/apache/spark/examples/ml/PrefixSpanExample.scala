@@ -17,8 +17,11 @@
 
 package org.apache.spark.examples.ml
 
+<<<<<<< HEAD
 // scalastyle:off println
 
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 // $example on$
 import org.apache.spark.ml.fpm.PrefixSpan
 // $example off$
@@ -59,4 +62,7 @@ object PrefixSpanExample {
     spark.stop()
   }
 }
+<<<<<<< HEAD
 // scalastyle:on println
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da

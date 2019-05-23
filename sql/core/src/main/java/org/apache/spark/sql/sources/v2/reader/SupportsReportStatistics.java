@@ -17,18 +17,28 @@
 
 package org.apache.spark.sql.sources.v2.reader;
 
-import org.apache.spark.annotation.InterfaceStability;
+import org.apache.spark.annotation.Evolving;
 
 /**
+<<<<<<< HEAD
  * A mix in interface for {@link DataSourceReader}. Data source readers can implement this
  * interface to report statistics to Spark.
+=======
+ * A mix in interface for {@link Scan}. Data sources can implement this interface to
+ * report statistics to Spark.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
  *
  * As of Spark 2.4, statistics are reported to the optimizer before any operator is pushed to the
  * DataSourceReader. Implementations that return more accurate statistics based on pushed operators
  * will not improve query performance until the planner can push operators before getting stats.
  */
+<<<<<<< HEAD
 @InterfaceStability.Evolving
 public interface SupportsReportStatistics extends DataSourceReader {
+=======
+@Evolving
+public interface SupportsReportStatistics extends Scan {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
   /**
    * Returns the estimated statistics of this data source.

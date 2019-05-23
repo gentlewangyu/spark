@@ -17,19 +17,33 @@
 
 package org.apache.spark.sql.execution.streaming
 
+import java.util
+
+import scala.collection.JavaConverters._
+
 import org.apache.spark.sql._
+<<<<<<< HEAD
 import org.apache.spark.sql.execution.streaming.sources.ConsoleWriter
 import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister}
 import org.apache.spark.sql.sources.v2.{DataSourceOptions, DataSourceV2, StreamWriteSupport}
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter
 import org.apache.spark.sql.streaming.OutputMode
+=======
+import org.apache.spark.sql.execution.streaming.sources.ConsoleWrite
+import org.apache.spark.sql.sources.{BaseRelation, CreatableRelationProvider, DataSourceRegister}
+import org.apache.spark.sql.sources.v2._
+import org.apache.spark.sql.sources.v2.writer.{SupportsTruncate, WriteBuilder}
+import org.apache.spark.sql.sources.v2.writer.streaming.StreamingWrite
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 case class ConsoleRelation(override val sqlContext: SQLContext, data: DataFrame)
   extends BaseRelation {
   override def schema: StructType = data.schema
 }
 
+<<<<<<< HEAD
 class ConsoleSinkProvider extends DataSourceV2
   with StreamWriteSupport
   with DataSourceRegister
@@ -41,6 +55,14 @@ class ConsoleSinkProvider extends DataSourceV2
       mode: OutputMode,
       options: DataSourceOptions): StreamWriter = {
     new ConsoleWriter(schema, options)
+=======
+class ConsoleSinkProvider extends TableProvider
+  with DataSourceRegister
+  with CreatableRelationProvider {
+
+  override def getTable(options: CaseInsensitiveStringMap): Table = {
+    ConsoleTable
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   }
 
   def createRelation(
@@ -59,4 +81,34 @@ class ConsoleSinkProvider extends DataSourceV2
   }
 
   def shortName(): String = "console"
+}
+
+object ConsoleTable extends Table with SupportsWrite {
+
+  override def name(): String = "console"
+
+  override def schema(): StructType = StructType(Nil)
+
+  override def capabilities(): util.Set[TableCapability] = {
+    Set(TableCapability.STREAMING_WRITE).asJava
+  }
+
+  override def newWriteBuilder(options: CaseInsensitiveStringMap): WriteBuilder = {
+    new WriteBuilder with SupportsTruncate {
+      private var inputSchema: StructType = _
+
+      override def withInputDataSchema(schema: StructType): WriteBuilder = {
+        this.inputSchema = schema
+        this
+      }
+
+      // Do nothing for truncate. Console sink is special that it just prints all the records.
+      override def truncate(): WriteBuilder = this
+
+      override def buildForStreaming(): StreamingWrite = {
+        assert(inputSchema != null)
+        new ConsoleWrite(inputSchema, options)
+      }
+    }
+  }
 }

@@ -20,7 +20,7 @@ package org.apache.spark.sql.sources.v2.reader;
 import java.io.Closeable;
 import java.io.IOException;
 
-import org.apache.spark.annotation.InterfaceStability;
+import org.apache.spark.annotation.Evolving;
 
 /**
  * An input partition reader returned by {@link InputPartition#createPartitionReader()} and is
@@ -30,8 +30,13 @@ import org.apache.spark.annotation.InterfaceStability;
  * for normal data source readers, {@link org.apache.spark.sql.vectorized.ColumnarBatch} for data
  * source readers that mix in {@link SupportsScanColumnarBatch}.
  */
+<<<<<<< HEAD:sql/core/src/main/java/org/apache/spark/sql/sources/v2/reader/InputPartitionReader.java
 @InterfaceStability.Evolving
 public interface InputPartitionReader<T> extends Closeable {
+=======
+@Evolving
+public interface PartitionReader<T> extends Closeable {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da:sql/core/src/main/java/org/apache/spark/sql/sources/v2/reader/PartitionReader.java
 
   /**
    * Proceed to next record, returns false if there is no more records.

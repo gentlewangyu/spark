@@ -24,7 +24,11 @@ import java.nio.file.Files
 import java.util.{Arrays, Random, UUID}
 
 import com.google.common.io.ByteStreams
+<<<<<<< HEAD
 import org.mockito.Matchers.any
+=======
+import org.mockito.ArgumentMatchers.any
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.mockito.Mockito._
 
 import org.apache.spark._
@@ -75,8 +79,8 @@ class CryptoStreamUtilsSuite extends SparkFunSuite {
 
   test("serializer manager integration") {
     val conf = createConf()
-      .set("spark.shuffle.compress", "true")
-      .set("spark.shuffle.spill.compress", "true")
+      .set(SHUFFLE_COMPRESS, true)
+      .set(SHUFFLE_SPILL_COMPRESS, true)
 
     val plainStr = "hello world"
     val blockId = new TempShuffleBlockId(UUID.randomUUID())

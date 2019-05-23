@@ -20,10 +20,17 @@ package org.apache.spark.sql.catalyst.util
 import java.text.ParseException
 import java.time._
 import java.time.format.DateTimeParseException
+<<<<<<< HEAD
 import java.time.temporal.TemporalQueries
 import java.util.{Locale, TimeZone}
 
 import org.apache.spark.sql.catalyst.util.DateTimeUtils.instantToMicros
+=======
+import java.time.temporal.ChronoField.MICRO_OF_SECOND
+import java.time.temporal.TemporalQueries
+import java.util.{Locale, TimeZone}
+import java.util.concurrent.TimeUnit.SECONDS
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
 sealed trait TimestampFormatter extends Serializable {
   /**
@@ -44,6 +51,7 @@ sealed trait TimestampFormatter extends Serializable {
 
 class Iso8601TimestampFormatter(
     pattern: String,
+<<<<<<< HEAD
     timeZone: TimeZone,
     locale: Locale) extends TimestampFormatter with DateTimeFormatterHelper {
   @transient
@@ -69,10 +77,50 @@ class Iso8601TimestampFormatter(
   }
 }
 
+=======
+    zoneId: ZoneId,
+    locale: Locale) extends TimestampFormatter with DateTimeFormatterHelper {
+  @transient
+  protected lazy val formatter = getOrCreateFormatter(pattern, locale)
+
+  override def parse(s: String): Long = {
+    val parsed = formatter.parse(s)
+    val parsedZoneId = parsed.query(TemporalQueries.zone())
+    val timeZoneId = if (parsedZoneId == null) zoneId else parsedZoneId
+    val zonedDateTime = toZonedDateTime(parsed, timeZoneId)
+    val epochSeconds = zonedDateTime.toEpochSecond
+    val microsOfSecond = zonedDateTime.get(MICRO_OF_SECOND)
+
+    Math.addExact(SECONDS.toMicros(epochSeconds), microsOfSecond)
+  }
+
+  override def format(us: Long): String = {
+    val instant = DateTimeUtils.microsToInstant(us)
+    formatter.withZone(zoneId).format(instant)
+  }
+}
+
+/**
+ * The formatter parses/formats timestamps according to the pattern `yyyy-MM-dd HH:mm:ss.[..fff..]`
+ * where `[..fff..]` is a fraction of second up to microsecond resolution. The formatter does not
+ * output trailing zeros in the fraction. For example, the timestamp `2019-03-05 15:00:01.123400` is
+ * formatted as the string `2019-03-05 15:00:01.1234`.
+ *
+ * @param zoneId the time zone identifier in which the formatter parses or format timestamps
+ */
+class FractionTimestampFormatter(zoneId: ZoneId)
+  extends Iso8601TimestampFormatter("", zoneId, TimestampFormatter.defaultLocale) {
+
+  @transient
+  override protected lazy val formatter = DateTimeFormatterHelper.fractionFormatter
+}
+
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 object TimestampFormatter {
   val defaultPattern: String = "yyyy-MM-dd HH:mm:ss"
   val defaultLocale: Locale = Locale.US
 
+<<<<<<< HEAD
   def apply(format: String, timeZone: TimeZone, locale: Locale): TimestampFormatter = {
     new Iso8601TimestampFormatter(format, timeZone, locale)
   }
@@ -83,5 +131,21 @@ object TimestampFormatter {
 
   def apply(timeZone: TimeZone): TimestampFormatter = {
     apply(defaultPattern, timeZone, defaultLocale)
+=======
+  def apply(format: String, zoneId: ZoneId, locale: Locale): TimestampFormatter = {
+    new Iso8601TimestampFormatter(format, zoneId, locale)
+  }
+
+  def apply(format: String, zoneId: ZoneId): TimestampFormatter = {
+    apply(format, zoneId, defaultLocale)
+  }
+
+  def apply(zoneId: ZoneId): TimestampFormatter = {
+    apply(defaultPattern, zoneId, defaultLocale)
+  }
+
+  def getFractionFormatter(zoneId: ZoneId): TimestampFormatter = {
+    new FractionTimestampFormatter(zoneId)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   }
 }

@@ -203,9 +203,15 @@ public class TransportCipher {
     private final boolean isByteBuf;
     private final ByteBuf buf;
     private final FileRegion region;
+<<<<<<< HEAD
     private final long count;
     private final CryptoOutputStream cos;
     private final EncryptionHandler handler;
+=======
+    private final CryptoOutputStream cos;
+    private final EncryptionHandler handler;
+    private final long count;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     private long transferred;
 
     // Due to streaming issue CRYPTO-125: https://issues.apache.org/jira/browse/CRYPTO-125, it has

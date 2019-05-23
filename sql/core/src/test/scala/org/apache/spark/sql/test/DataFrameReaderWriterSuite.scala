@@ -23,6 +23,13 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.collection.JavaConverters._
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
+import org.apache.parquet.hadoop.ParquetFileReader
+import org.apache.parquet.hadoop.util.HadoopInputFile
+import org.apache.parquet.schema.PrimitiveType
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
+import org.apache.parquet.schema.Type.Repetition
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.SparkContext
@@ -32,6 +39,10 @@ import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.execution.datasources.DataSourceUtils
+<<<<<<< HEAD
+=======
+import org.apache.spark.sql.execution.datasources.parquet.SpecificParquetRecordReaderBase
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types._
@@ -541,11 +552,12 @@ class DataFrameReaderWriterSuite extends QueryTest with SharedSQLContext with Be
       Seq("json", "orc", "parquet", "csv").foreach { format =>
         val schema = StructType(
           StructField("cl1", IntegerType, nullable = false).withComment("test") ::
-            StructField("cl2", IntegerType, nullable = true) ::
-            StructField("cl3", IntegerType, nullable = true) :: Nil)
+          StructField("cl2", IntegerType, nullable = true) ::
+          StructField("cl3", IntegerType, nullable = true) :: Nil)
         val row = Row(3, null, 4)
         val df = spark.createDataFrame(sparkContext.parallelize(row :: Nil), schema)
 
+        // if we write and then read, the read will enforce schema to be nullable
         val tableName = "tab"
         withTable(tableName) {
           df.write.format(format).mode("overwrite").saveAsTable(tableName)
@@ -555,10 +567,39 @@ class DataFrameReaderWriterSuite extends QueryTest with SharedSQLContext with Be
             Row("cl1", "test") :: Nil)
           // Verify the schema
           val expectedFields = schema.fields.map(f => f.copy(nullable = true))
-          assert(spark.table(tableName).schema == schema.copy(fields = expectedFields))
+          assert(spark.table(tableName).schema === schema.copy(fields = expectedFields))
         }
       }
     }
+  }
+
+  test("parquet - column nullability -- write only") {
+    val schema = StructType(
+      StructField("cl1", IntegerType, nullable = false) ::
+      StructField("cl2", IntegerType, nullable = true) :: Nil)
+    val row = Row(3, 4)
+    val df = spark.createDataFrame(sparkContext.parallelize(row :: Nil), schema)
+
+    withTempPath { dir =>
+      val path = dir.getAbsolutePath
+      df.write.mode("overwrite").parquet(path)
+      val file = SpecificParquetRecordReaderBase.listDirectory(dir).get(0)
+
+      val hadoopInputFile = HadoopInputFile.fromPath(new Path(file), new Configuration())
+      val f = ParquetFileReader.open(hadoopInputFile)
+      val parquetSchema = f.getFileMetaData.getSchema.getColumns.asScala
+                          .map(_.getPrimitiveType)
+      f.close()
+
+      // the write keeps nullable info from the schema
+      val expectedParquetSchema = Seq(
+        new PrimitiveType(Repetition.REQUIRED, PrimitiveTypeName.INT32, "cl1"),
+        new PrimitiveType(Repetition.OPTIONAL, PrimitiveTypeName.INT32, "cl2")
+      )
+
+      assert (expectedParquetSchema === parquetSchema)
+    }
+
   }
 
   test("SPARK-17230: write out results of decimal calculation") {
@@ -819,6 +860,12 @@ class DataFrameReaderWriterSuite extends QueryTest with SharedSQLContext with Be
           checkReadUserSpecifiedDataColumnDuplication(
             Seq((1, 1)).toDF("c0", "c1"), "parquet", c0, c1, src)
           checkReadPartitionColumnDuplication("parquet", c0, c1, src)
+
+          // Check ORC format
+          checkWriteDataColumnDuplication("orc", c0, c1, src)
+          checkReadUserSpecifiedDataColumnDuplication(
+            Seq((1, 1)).toDF("c0", "c1"), "orc", c0, c1, src)
+          checkReadPartitionColumnDuplication("orc", c0, c1, src)
         }
       }
     }

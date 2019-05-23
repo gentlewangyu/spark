@@ -21,11 +21,20 @@ import scala.collection.mutable
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
+<<<<<<< HEAD
 import org.apache.spark.sql.sources.v2.writer.{DataSourceWriter, DataWriter, DataWriterFactory, WriterCommitMessage}
 
 /**
  * A simple [[DataWriterFactory]] whose tasks just pack rows into the commit message for delivery
  * to a [[DataSourceWriter]] on the driver.
+=======
+import org.apache.spark.sql.sources.v2.writer.{BatchWrite, DataWriter, DataWriterFactory, WriterCommitMessage}
+import org.apache.spark.sql.sources.v2.writer.streaming.StreamingDataWriterFactory
+
+/**
+ * A simple [[DataWriterFactory]] whose tasks just pack rows into the commit message for delivery
+ * to a [[BatchWrite]] on the driver.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
  *
  * Note that, because it sends all rows to the driver, this factory will generally be unsuitable
  * for production-quality sinks. It's intended for use in tests.

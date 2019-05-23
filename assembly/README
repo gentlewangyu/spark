@@ -9,4 +9,8 @@ This module is off by default. To activate it specify the profile in the command
 
 If you need to build an assembly for a different version of Hadoop the
 hadoop-version system property needs to be set as in this example:
+<<<<<<< HEAD
   -Dhadoop.version=2.7.3
+=======
+  -Dhadoop.version=2.7.4
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da

@@ -19,7 +19,11 @@ package org.apache.spark.sql
 
 import scala.collection.mutable
 
-import org.apache.spark.annotation.{DeveloperApi, Experimental, InterfaceStability}
+import org.apache.spark.annotation.{DeveloperApi, Experimental, Unstable}
+import org.apache.spark.sql.catalyst.FunctionIdentifier
+import org.apache.spark.sql.catalyst.analysis.FunctionRegistry
+import org.apache.spark.sql.catalyst.analysis.FunctionRegistry.FunctionBuilder
+import org.apache.spark.sql.catalyst.expressions.ExpressionInfo
 import org.apache.spark.sql.catalyst.parser.ParserInterface
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.rules.Rule
@@ -30,6 +34,18 @@ import org.apache.spark.sql.catalyst.rules.Rule
  * regarding binary compatibility and source compatibility of methods here.
  *
  * This current provides the following extension points:
+<<<<<<< HEAD
+ *
+ * <ul>
+ * <li>Analyzer Rules.</li>
+ * <li>Check Analysis Rules.</li>
+ * <li>Optimizer Rules.</li>
+ * <li>Planning Strategies.</li>
+ * <li>Customized Parser.</li>
+ * <li>(External) Catalog listeners.</li>
+ * </ul>
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
  *
  * <ul>
  * <li>Analyzer Rules.</li>
@@ -40,12 +56,12 @@ import org.apache.spark.sql.catalyst.rules.Rule
  * <li>(External) Catalog listeners.</li>
  * </ul>
  *
- * The extensions can be used by calling withExtension on the [[SparkSession.Builder]], for
+ * The extensions can be used by calling `withExtensions` on the [[SparkSession.Builder]], for
  * example:
  * {{{
  *   SparkSession.builder()
  *     .master("...")
- *     .conf("...", true)
+ *     .config("...", true)
  *     .withExtensions { extensions =>
  *       extensions.injectResolutionRule { session =>
  *         ...
@@ -57,17 +73,38 @@ import org.apache.spark.sql.catalyst.rules.Rule
  *     .getOrCreate()
  * }}}
  *
+ * The extensions can also be used by setting the Spark SQL configuration property
+ * `spark.sql.extensions`. Multiple extensions can be set using a comma-separated list. For example:
+ * {{{
+ *   SparkSession.builder()
+ *     .master("...")
+ *     .config("spark.sql.extensions", "org.example.MyExtensions")
+ *     .getOrCreate()
+ *
+ *   class MyExtensions extends Function1[SparkSessionExtensions, Unit] {
+ *     override def apply(extensions: SparkSessionExtensions): Unit = {
+ *       extensions.injectResolutionRule { session =>
+ *         ...
+ *       }
+ *       extensions.injectParser { (session, parser) =>
+ *         ...
+ *       }
+ *     }
+ *   }
+ * }}}
+ *
  * Note that none of the injected builders should assume that the [[SparkSession]] is fully
  * initialized and should not touch the session's internals (e.g. the SessionState).
  */
 @DeveloperApi
 @Experimental
-@InterfaceStability.Unstable
+@Unstable
 class SparkSessionExtensions {
   type RuleBuilder = SparkSession => Rule[LogicalPlan]
   type CheckRuleBuilder = SparkSession => LogicalPlan => Unit
   type StrategyBuilder = SparkSession => Strategy
   type ParserBuilder = (SparkSession, ParserInterface) => ParserInterface
+  type FunctionDescription = (FunctionIdentifier, ExpressionInfo, FunctionBuilder)
 
   private[this] val resolutionRuleBuilders = mutable.Buffer.empty[RuleBuilder]
 
@@ -170,5 +207,22 @@ class SparkSessionExtensions {
    */
   def injectParser(builder: ParserBuilder): Unit = {
     parserBuilders += builder
+  }
+
+  private[this] val injectedFunctions = mutable.Buffer.empty[FunctionDescription]
+
+  private[sql] def registerFunctions(functionRegistry: FunctionRegistry) = {
+    for ((name, expressionInfo, function) <- injectedFunctions) {
+      functionRegistry.registerFunction(name, expressionInfo, function)
+    }
+    functionRegistry
+  }
+
+  /**
+  * Injects a custom function into the [[org.apache.spark.sql.catalyst.analysis.FunctionRegistry]]
+  * at runtime for all sessions.
+  */
+  def injectFunction(functionDescription: FunctionDescription): Unit = {
+    injectedFunctions += functionDescription
   }
 }

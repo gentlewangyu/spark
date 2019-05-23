@@ -32,11 +32,17 @@ import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
 import org.apache.spark.sql.{Encoder, SQLContext}
 import org.apache.spark.sql.catalyst.InternalRow
+<<<<<<< HEAD
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.sources.v2.{ContinuousReadSupport, DataSourceOptions}
 import org.apache.spark.sql.sources.v2.reader.InputPartition
 import org.apache.spark.sql.sources.v2.reader.streaming.{ContinuousInputPartitionReader, ContinuousReader, Offset, PartitionOffset}
 import org.apache.spark.sql.types.StructType
+=======
+import org.apache.spark.sql.execution.streaming.{Offset => _, _}
+import org.apache.spark.sql.sources.v2.reader.InputPartition
+import org.apache.spark.sql.sources.v2.reader.streaming._
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.util.RpcUtils
 
 /**
@@ -48,11 +54,13 @@ import org.apache.spark.util.RpcUtils
  *    the specified offset within the list, or null if that offset doesn't yet have a record.
  */
 class ContinuousMemoryStream[A : Encoder](id: Int, sqlContext: SQLContext, numPartitions: Int = 2)
+<<<<<<< HEAD
   extends MemoryStreamBase[A](sqlContext) with ContinuousReader with ContinuousReadSupport {
-  private implicit val formats = Serialization.formats(NoTypeHints)
+=======
+  extends MemoryStreamBase[A](sqlContext) with ContinuousStream {
 
-  protected val logicalPlan =
-    StreamingRelationV2(this, "memory", Map(), attributes, None)(sqlContext.sparkSession)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
+  private implicit val formats = Serialization.formats(NoTypeHints)
 
   // ContinuousReader implementation
 
@@ -98,7 +106,13 @@ class ContinuousMemoryStream[A : Encoder](id: Int, sqlContext: SQLContext, numPa
     )
   }
 
+<<<<<<< HEAD
   override def planInputPartitions(): ju.List[InputPartition[InternalRow]] = {
+=======
+
+  override def planInputPartitions(start: Offset): Array[InputPartition] = {
+    val startOffset = start.asInstanceOf[ContinuousMemoryStreamOffset]
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     synchronized {
       val endpointName = s"ContinuousMemoryStreamRecordEndpoint-${java.util.UUID.randomUUID()}-$id"
       endpointRef =
@@ -112,11 +126,19 @@ class ContinuousMemoryStream[A : Encoder](id: Int, sqlContext: SQLContext, numPa
     }
   }
 
+<<<<<<< HEAD
+=======
+  override def createContinuousReaderFactory(): ContinuousPartitionReaderFactory = {
+    ContinuousMemoryStreamReaderFactory
+  }
+
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   override def stop(): Unit = {
     if (endpointRef != null) recordEndpoint.rpcEnv.stop(endpointRef)
   }
 
   override def commit(end: Offset): Unit = {}
+<<<<<<< HEAD
 
   // ContinuousReadSupport implementation
   // This is necessary because of how StreamTest finds the source for AddDataMemory steps.
@@ -126,6 +148,8 @@ class ContinuousMemoryStream[A : Encoder](id: Int, sqlContext: SQLContext, numPa
       options: DataSourceOptions): ContinuousReader = {
     this
   }
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 }
 
 object ContinuousMemoryStream {

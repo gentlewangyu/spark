@@ -17,8 +17,13 @@
 
 package org.apache.spark.sql.sources.v2.reader.partitioning;
 
+<<<<<<< HEAD
 import org.apache.spark.annotation.InterfaceStability;
 import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
+=======
+import org.apache.spark.annotation.Evolving;
+import org.apache.spark.sql.sources.v2.reader.PartitionReader;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
 /**
  * An interface to represent data distribution requirement, which specifies how the records should
@@ -37,5 +42,5 @@ import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
  *   <li>{@link ClusteredDistribution}</li>
  * </ul>
  */
-@InterfaceStability.Evolving
+@Evolving
 public interface Distribution {}

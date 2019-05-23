@@ -23,9 +23,15 @@ import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
 import org.apache.spark.sql.SparkSession
+<<<<<<< HEAD
 import org.apache.spark.sql.sources.v2.reader.streaming.{ContinuousReader, PartitionOffset}
 import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage
 import org.apache.spark.sql.sources.v2.writer.streaming.StreamWriter
+=======
+import org.apache.spark.sql.sources.v2.reader.streaming.{ContinuousStream, PartitionOffset}
+import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage
+import org.apache.spark.sql.sources.v2.writer.streaming.StreamingWrite
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.util.RpcUtils
 
 private[continuous] sealed trait EpochCoordinatorMessage extends Serializable
@@ -82,15 +88,24 @@ private[sql] object EpochCoordinatorRef extends Logging {
    * Create a reference to a new [[EpochCoordinator]].
    */
   def create(
+<<<<<<< HEAD
       writer: StreamWriter,
       reader: ContinuousReader,
+=======
+      writeSupport: StreamingWrite,
+      stream: ContinuousStream,
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       query: ContinuousExecution,
       epochCoordinatorId: String,
       startEpoch: Long,
       session: SparkSession,
       env: SparkEnv): RpcEndpointRef = synchronized {
     val coordinator = new EpochCoordinator(
+<<<<<<< HEAD
       writer, reader, query, startEpoch, session, env.rpcEnv)
+=======
+      writeSupport, stream, query, startEpoch, session, env.rpcEnv)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     val ref = env.rpcEnv.setupEndpoint(endpointName(epochCoordinatorId), coordinator)
     logInfo("Registered EpochCoordinator endpoint")
     ref
@@ -115,13 +130,21 @@ private[sql] object EpochCoordinatorRef extends Logging {
  *   have both committed and reported an end offset for a given epoch.
  */
 private[continuous] class EpochCoordinator(
+<<<<<<< HEAD
     writer: StreamWriter,
     reader: ContinuousReader,
+=======
+    writeSupport: StreamingWrite,
+    stream: ContinuousStream,
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     query: ContinuousExecution,
     startEpoch: Long,
     session: SparkSession,
     override val rpcEnv: RpcEnv)
   extends ThreadSafeRpcEndpoint with Logging {
+
+  private val epochBacklogQueueSize =
+    session.sqlContext.conf.continuousStreamingEpochBacklogQueueSize
 
   private var queryWritesStopped: Boolean = false
 
@@ -212,6 +235,7 @@ private[continuous] class EpochCoordinator(
       if (!partitionCommits.isDefinedAt((epoch, partitionId))) {
         partitionCommits.put((epoch, partitionId), message)
         resolveCommitsAtEpoch(epoch)
+        checkProcessingQueueBoundaries()
       }
 
     case ReportPartitionOffset(partitionId, epoch, offset) =>
@@ -220,9 +244,29 @@ private[continuous] class EpochCoordinator(
         partitionOffsets.collect { case ((e, _), o) if e == epoch => o }
       if (thisEpochOffsets.size == numReaderPartitions) {
         logDebug(s"Epoch $epoch has offsets reported from all partitions: $thisEpochOffsets")
+<<<<<<< HEAD
         query.addOffset(epoch, reader, thisEpochOffsets.toSeq)
+=======
+        query.addOffset(epoch, stream, thisEpochOffsets.toSeq)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
         resolveCommitsAtEpoch(epoch)
       }
+      checkProcessingQueueBoundaries()
+  }
+
+  private def checkProcessingQueueBoundaries() = {
+    if (partitionOffsets.size > epochBacklogQueueSize) {
+      query.stopInNewThread(new IllegalStateException("Size of the partition offset queue has " +
+        "exceeded its maximum"))
+    }
+    if (partitionCommits.size > epochBacklogQueueSize) {
+      query.stopInNewThread(new IllegalStateException("Size of the partition commit queue has " +
+        "exceeded its maximum"))
+    }
+    if (epochsWaitingToBeCommitted.size > epochBacklogQueueSize) {
+      query.stopInNewThread(new IllegalStateException("Size of the epoch queue has " +
+        "exceeded its maximum"))
+    }
   }
 
   override def receiveAndReply(context: RpcCallContext): PartialFunction[Any, Unit] = {

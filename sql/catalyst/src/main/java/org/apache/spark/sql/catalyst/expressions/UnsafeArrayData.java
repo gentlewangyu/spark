@@ -25,6 +25,11 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoSerializable;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+
 import org.apache.spark.sql.catalyst.util.ArrayData;
 import org.apache.spark.sql.types.*;
 import org.apache.spark.unsafe.Platform;
@@ -58,8 +63,12 @@ import static org.apache.spark.unsafe.Platform.BYTE_ARRAY_OFFSET;
  * Instances of `UnsafeArrayData` act as pointers to row data stored in this format.
  */
 
+<<<<<<< HEAD
 public final class UnsafeArrayData extends ArrayData implements Externalizable {
 
+=======
+public final class UnsafeArrayData extends ArrayData implements Externalizable, KryoSerializable {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   public static int calculateHeaderPortionInBytes(int numFields) {
     return (int)calculateHeaderPortionInBytes((long)numFields);
   }
@@ -143,46 +152,7 @@ public final class UnsafeArrayData extends ArrayData implements Externalizable {
 
   @Override
   public Object get(int ordinal, DataType dataType) {
-    if (isNullAt(ordinal) || dataType instanceof NullType) {
-      return null;
-    } else if (dataType instanceof BooleanType) {
-      return getBoolean(ordinal);
-    } else if (dataType instanceof ByteType) {
-      return getByte(ordinal);
-    } else if (dataType instanceof ShortType) {
-      return getShort(ordinal);
-    } else if (dataType instanceof IntegerType) {
-      return getInt(ordinal);
-    } else if (dataType instanceof LongType) {
-      return getLong(ordinal);
-    } else if (dataType instanceof FloatType) {
-      return getFloat(ordinal);
-    } else if (dataType instanceof DoubleType) {
-      return getDouble(ordinal);
-    } else if (dataType instanceof DecimalType) {
-      DecimalType dt = (DecimalType) dataType;
-      return getDecimal(ordinal, dt.precision(), dt.scale());
-    } else if (dataType instanceof DateType) {
-      return getInt(ordinal);
-    } else if (dataType instanceof TimestampType) {
-      return getLong(ordinal);
-    } else if (dataType instanceof BinaryType) {
-      return getBinary(ordinal);
-    } else if (dataType instanceof StringType) {
-      return getUTF8String(ordinal);
-    } else if (dataType instanceof CalendarIntervalType) {
-      return getInterval(ordinal);
-    } else if (dataType instanceof StructType) {
-      return getStruct(ordinal, ((StructType) dataType).size());
-    } else if (dataType instanceof ArrayType) {
-      return getArray(ordinal);
-    } else if (dataType instanceof MapType) {
-      return getMap(ordinal);
-    } else if (dataType instanceof UserDefinedType) {
-      return get(ordinal, ((UserDefinedType)dataType).sqlType());
-    } else {
-      throw new UnsupportedOperationException("Unsupported data type " + dataType.simpleString());
-    }
+    return SpecializedGettersReader.read(this, ordinal, dataType, true, true);
   }
 
   @Override
@@ -306,6 +276,7 @@ public final class UnsafeArrayData extends ArrayData implements Externalizable {
   @Override
   public void update(int ordinal, Object value) { throw new UnsupportedOperationException(); }
 
+  @Override
   public void setNullAt(int ordinal) {
     assertIndexIsValid(ordinal);
     BitSetMethods.set(baseObject, baseOffset + 8, ordinal);
@@ -314,43 +285,44 @@ public final class UnsafeArrayData extends ArrayData implements Externalizable {
        will be set to 0 later by the caller side */
   }
 
+  @Override
   public void setBoolean(int ordinal, boolean value) {
     assertIndexIsValid(ordinal);
     Platform.putBoolean(baseObject, getElementOffset(ordinal, 1), value);
   }
 
+  @Override
   public void setByte(int ordinal, byte value) {
     assertIndexIsValid(ordinal);
     Platform.putByte(baseObject, getElementOffset(ordinal, 1), value);
   }
 
+  @Override
   public void setShort(int ordinal, short value) {
     assertIndexIsValid(ordinal);
     Platform.putShort(baseObject, getElementOffset(ordinal, 2), value);
   }
 
+  @Override
   public void setInt(int ordinal, int value) {
     assertIndexIsValid(ordinal);
     Platform.putInt(baseObject, getElementOffset(ordinal, 4), value);
   }
 
+  @Override
   public void setLong(int ordinal, long value) {
     assertIndexIsValid(ordinal);
     Platform.putLong(baseObject, getElementOffset(ordinal, 8), value);
   }
 
+  @Override
   public void setFloat(int ordinal, float value) {
-    if (Float.isNaN(value)) {
-      value = Float.NaN;
-    }
     assertIndexIsValid(ordinal);
     Platform.putFloat(baseObject, getElementOffset(ordinal, 4), value);
   }
 
+  @Override
   public void setDouble(int ordinal, double value) {
-    if (Double.isNaN(value)) {
-      value = Double.NaN;
-    }
     assertIndexIsValid(ordinal);
     Platform.putDouble(baseObject, getElementOffset(ordinal, 8), value);
   }
@@ -530,6 +502,7 @@ public final class UnsafeArrayData extends ArrayData implements Externalizable {
     return fromPrimitiveArray(arr, Platform.DOUBLE_ARRAY_OFFSET, arr.length, 8);
   }
 
+<<<<<<< HEAD
 
   public byte[] getBytes() {
     if (baseObject instanceof byte[]
@@ -546,6 +519,11 @@ public final class UnsafeArrayData extends ArrayData implements Externalizable {
   @Override
   public void writeExternal(ObjectOutput out) throws IOException {
     byte[] bytes = getBytes();
+=======
+  @Override
+  public void writeExternal(ObjectOutput out) throws IOException {
+    byte[] bytes = UnsafeDataUtils.getBytes(baseObject, baseOffset, sizeInBytes);
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     out.writeInt(bytes.length);
     out.writeInt(this.numElements);
     out.write(bytes);
@@ -560,4 +538,25 @@ public final class UnsafeArrayData extends ArrayData implements Externalizable {
     this.baseObject = new byte[sizeInBytes];
     in.readFully((byte[]) baseObject);
   }
+<<<<<<< HEAD
+=======
+
+  @Override
+  public void write(Kryo kryo, Output output) {
+    byte[] bytes = UnsafeDataUtils.getBytes(baseObject, baseOffset, sizeInBytes);
+    output.writeInt(bytes.length);
+    output.writeInt(this.numElements);
+    output.write(bytes);
+  }
+
+  @Override
+  public void read(Kryo kryo, Input input) {
+    this.baseOffset = BYTE_ARRAY_OFFSET;
+    this.sizeInBytes = input.readInt();
+    this.numElements = input.readInt();
+    this.elementOffset = baseOffset + calculateHeaderPortionInBytes(this.numElements);
+    this.baseObject = new byte[sizeInBytes];
+    input.read((byte[]) baseObject);
+  }
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 }

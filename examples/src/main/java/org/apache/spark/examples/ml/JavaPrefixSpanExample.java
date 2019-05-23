@@ -18,6 +18,11 @@
 package org.apache.spark.examples.ml;
 
 // $example on$
+<<<<<<< HEAD
+=======
+import java.util.Arrays;
+import java.util.List;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
 import org.apache.spark.ml.fpm.PrefixSpan;
 import org.apache.spark.sql.Dataset;
@@ -25,9 +30,12 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.*;
+<<<<<<< HEAD
 
 import java.util.Arrays;
 import java.util.List;
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 // $example off$
 
 /**

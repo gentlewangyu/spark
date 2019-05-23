@@ -32,34 +32,45 @@ import org.json4s.jackson.Serialization
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc.RpcEndpointRef
-import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.streaming.{ContinuousRecordEndpoint, ContinuousRecordPartitionOffset, GetRecord}
 import org.apache.spark.sql.execution.streaming.sources.TextSocketReader
+<<<<<<< HEAD
 import org.apache.spark.sql.sources.v2.DataSourceOptions
 import org.apache.spark.sql.sources.v2.reader.{InputPartition, InputPartitionReader}
 import org.apache.spark.sql.sources.v2.reader.streaming.{ContinuousInputPartitionReader, ContinuousReader, Offset, PartitionOffset}
 import org.apache.spark.sql.types.StructType
+=======
+import org.apache.spark.sql.sources.v2.reader._
+import org.apache.spark.sql.sources.v2.reader.streaming._
+import org.apache.spark.sql.util.CaseInsensitiveStringMap
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.util.RpcUtils
 
 
 /**
+<<<<<<< HEAD
  * A ContinuousReader that reads text lines through a TCP socket, designed only for tutorials and
  * debugging. This ContinuousReader will *not* work in production applications due to multiple
  * reasons, including no support for fault recovery.
+=======
+ * A [[ContinuousStream]] that reads text lines through a TCP socket, designed only for tutorials
+ * and debugging. This ContinuousStream will *not* work in production applications due to
+ * multiple reasons, including no support for fault recovery.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
  *
  * The driver maintains a socket connection to the host-port, keeps the received messages in
  * buckets and serves the messages to the executors via a RPC endpoint.
  */
+<<<<<<< HEAD
 class TextSocketContinuousReader(options: DataSourceOptions) extends ContinuousReader with Logging {
+=======
+class TextSocketContinuousStream(
+    host: String, port: Int, numPartitions: Int, options: CaseInsensitiveStringMap)
+  extends ContinuousStream with Logging {
+
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   implicit val defaultFormats: DefaultFormats = DefaultFormats
-
-  private val host: String = options.get("host").get()
-  private val port: Int = options.get("port").get().toInt
-
-  assert(SparkSession.getActiveSession.isDefined)
-  private val spark = SparkSession.getActiveSession.get
-  private val numPartitions = spark.sparkContext.defaultParallelism
 
   @GuardedBy("this")
   private var socket: Socket = _
@@ -101,6 +112,7 @@ class TextSocketContinuousReader(options: DataSourceOptions) extends ContinuousR
     recordEndpoint.setStartOffsets(startOffset.offsets)
   }
 
+<<<<<<< HEAD
   override def getStartOffset: Offset = startOffset
 
   override def readSchema(): StructType = {
@@ -113,6 +125,12 @@ class TextSocketContinuousReader(options: DataSourceOptions) extends ContinuousR
 
   override def planInputPartitions(): JList[InputPartition[InternalRow]] = {
 
+=======
+
+  override def planInputPartitions(start: Offset): Array[InputPartition] = {
+    val startOffset = start.asInstanceOf[TextSocketOffset]
+    recordEndpoint.setStartOffsets(startOffset.offsets)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     val endpointName = s"TextSocketContinuousReaderEndpoint-${java.util.UUID.randomUUID()}"
     endpointRef = recordEndpoint.rpcEnv.setupEndpoint(endpointName, recordEndpoint)
 
@@ -136,6 +154,11 @@ class TextSocketContinuousReader(options: DataSourceOptions) extends ContinuousR
           endpointName, i, offset, includeTimestamp): InputPartition[InternalRow]
     }.asJava
 
+<<<<<<< HEAD
+=======
+  override def createContinuousReaderFactory(): ContinuousPartitionReaderFactory = {
+    TextSocketReaderFactory
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   }
 
   override def commit(end: Offset): Unit = synchronized {
@@ -190,7 +213,11 @@ class TextSocketContinuousReader(options: DataSourceOptions) extends ContinuousR
               logWarning(s"Stream closed by $host:$port")
               return
             }
+<<<<<<< HEAD
             TextSocketContinuousReader.this.synchronized {
+=======
+            TextSocketContinuousStream.this.synchronized {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
               currentOffset += 1
               val newData = (line,
                 Timestamp.valueOf(

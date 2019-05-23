@@ -2,12 +2,34 @@
 layout: global
 title: PySpark Usage Guide for Pandas with Apache Arrow
 displayTitle: PySpark Usage Guide for Pandas with Apache Arrow
+<<<<<<< HEAD
+=======
+license: |
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+ 
+     http://www.apache.org/licenses/LICENSE-2.0
+ 
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 ---
 
 * Table of contents
 {:toc}
 
+<<<<<<< HEAD
 ## Apache Arrow in Spark
+=======
+## Apache Arrow in PySpark
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
 Apache Arrow is an in-memory columnar data format that is used in Spark to efficiently transfer
 data between JVM and Python processes. This currently is most beneficial to Python users that
@@ -20,7 +42,11 @@ working with Arrow-enabled data.
 
 If you install PySpark using pip, then PyArrow can be brought in as an extra dependency of the
 SQL module with the command `pip install pyspark[sql]`. Otherwise, you must ensure that PyArrow
+<<<<<<< HEAD
 is installed and available on all cluster nodes. The current supported version is 0.8.0.
+=======
+is installed and available on all cluster nodes. The current supported version is 0.12.1.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 You can install using pip or conda from the conda-forge channel. See PyArrow
 [installation](https://arrow.apache.org/docs/python/install.html) for details.
 
@@ -128,8 +154,12 @@ For detailed usage, please see [`pyspark.sql.functions.pandas_udf`](api/python/p
 ### Supported SQL Types
 
 Currently, all Spark SQL data types are supported by Arrow-based conversion except `MapType`,
+<<<<<<< HEAD
 `ArrayType` of `TimestampType`, and nested `StructType`. `BinaryType` is supported only when
 installed PyArrow is equal to or higher then 0.10.0.
+=======
+`ArrayType` of `TimestampType`, and nested `StructType`.
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
 ### Setting Arrow Batch Size
 

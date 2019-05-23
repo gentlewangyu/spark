@@ -16,11 +16,9 @@
  */
 package org.apache.spark.sql.execution.benchmark
 
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.util.Benchmark
+import org.apache.spark.benchmark.Benchmark
 
+<<<<<<< HEAD
 trait DataSourceWriteBenchmark {
   val conf = new SparkConf()
     .setAppName("DataSourceWriteBenchmark")
@@ -28,6 +26,9 @@ trait DataSourceWriteBenchmark {
     .set(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key, "true")
 
   val spark = SparkSession.builder.config(conf).getOrCreate()
+=======
+trait DataSourceWriteBenchmark extends SqlBasedBenchmark {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
   val tempTable = "temp"
   val numRows = 1024 * 1024 * 15
@@ -75,7 +76,11 @@ trait DataSourceWriteBenchmark {
     }
   }
 
+<<<<<<< HEAD
   def runBenchmark(format: String): Unit = {
+=======
+  def runDataSourceBenchmark(format: String): Unit = {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     val tableInt = "tableInt"
     val tableDouble = "tableDouble"
     val tableIntString = "tableIntString"
@@ -84,7 +89,11 @@ trait DataSourceWriteBenchmark {
     withTempTable(tempTable) {
       spark.range(numRows).createOrReplaceTempView(tempTable)
       withTable(tableInt, tableDouble, tableIntString, tablePartition, tableBucket) {
+<<<<<<< HEAD
         val benchmark = new Benchmark(s"$format writer benchmark", numRows)
+=======
+        val benchmark = new Benchmark(s"$format writer benchmark", numRows, output = output)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
         writeNumeric(tableInt, format, benchmark, "Int")
         writeNumeric(tableDouble, format, benchmark, "Double")
         writeIntString(tableIntString, format, benchmark)

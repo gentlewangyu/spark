@@ -29,11 +29,14 @@ export LC_ALL=C
 # TODO: This would be much nicer to do in SBT, once SBT supports Maven-style resolution.
 
 # NOTE: These should match those in the release publishing script
+<<<<<<< HEAD
+=======
+HADOOP2_MODULE_PROFILES="-Phive-thriftserver -Pmesos -Pkubernetes -Pyarn -Phive"
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 MVN="build/mvn"
 HADOOP_PROFILES=(
-    hadoop-2.6
     hadoop-2.7
-    hadoop-3.1
+    hadoop-3.2
 )
 
 SCALA_VERSION=$("$MVN" help:evaluate -Dexpression=scala.binary.version $@ 2>/dev/null\

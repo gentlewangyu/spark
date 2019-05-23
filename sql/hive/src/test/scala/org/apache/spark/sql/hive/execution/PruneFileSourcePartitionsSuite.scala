@@ -103,7 +103,10 @@ class PruneFileSourcePartitionsSuite extends QueryTest with SQLTestUtils with Te
         spark.range(10).selectExpr("id", "id % 3 as p").write.partitionBy("p").saveAsTable("tbl")
         val df = spark.table("tbl")
         val qe = df.join(broadcast(df), "p").queryExecution
+<<<<<<< HEAD
         qe.optimizedPlan.collect { case _: ResolvedHint => } should have size 1
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
         qe.sparkPlan.collect { case j: BroadcastHashJoinExec => j } should have size 1
       }
     }

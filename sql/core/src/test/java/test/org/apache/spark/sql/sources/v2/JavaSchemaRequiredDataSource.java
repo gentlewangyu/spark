@@ -17,6 +17,7 @@
 
 package test.org.apache.spark.sql.sources.v2;
 
+<<<<<<< HEAD
 import java.util.List;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -25,14 +26,30 @@ import org.apache.spark.sql.sources.v2.DataSourceV2;
 import org.apache.spark.sql.sources.v2.ReadSupport;
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
+=======
+import org.apache.spark.sql.sources.v2.Table;
+import org.apache.spark.sql.sources.v2.TableProvider;
+import org.apache.spark.sql.sources.v2.reader.*;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+<<<<<<< HEAD
 public class JavaSchemaRequiredDataSource implements DataSourceV2, ReadSupport {
 
   class Reader implements DataSourceReader {
     private final StructType schema;
 
     Reader(StructType schema) {
+=======
+public class JavaSchemaRequiredDataSource implements TableProvider {
+
+  class MyScanBuilder extends JavaSimpleScanBuilder {
+
+    private StructType schema;
+
+    MyScanBuilder(StructType schema) {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       this.schema = schema;
     }
 
@@ -42,12 +59,18 @@ public class JavaSchemaRequiredDataSource implements DataSourceV2, ReadSupport {
     }
 
     @Override
+<<<<<<< HEAD
     public List<InputPartition<InternalRow>> planInputPartitions() {
       return java.util.Collections.emptyList();
+=======
+    public InputPartition[] planInputPartitions() {
+      return new InputPartition[0];
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     }
   }
 
   @Override
+<<<<<<< HEAD
   public DataSourceReader createReader(DataSourceOptions options) {
     throw new IllegalArgumentException("requires a user-supplied schema");
   }
@@ -55,5 +78,25 @@ public class JavaSchemaRequiredDataSource implements DataSourceV2, ReadSupport {
   @Override
   public DataSourceReader createReader(StructType schema, DataSourceOptions options) {
     return new Reader(schema);
+=======
+  public Table getTable(CaseInsensitiveStringMap options, StructType schema) {
+    return new JavaSimpleBatchTable() {
+
+      @Override
+      public StructType schema() {
+        return schema;
+      }
+
+      @Override
+      public ScanBuilder newScanBuilder(CaseInsensitiveStringMap options) {
+        return new MyScanBuilder(schema);
+      }
+    };
+  }
+
+  @Override
+  public Table getTable(CaseInsensitiveStringMap options) {
+    throw new IllegalArgumentException("requires a user-supplied schema");
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   }
 }

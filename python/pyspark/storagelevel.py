@@ -56,6 +56,7 @@ StorageLevel.MEMORY_ONLY_2 = StorageLevel(False, True, False, False, 2)
 StorageLevel.MEMORY_AND_DISK = StorageLevel(True, True, False, False)
 StorageLevel.MEMORY_AND_DISK_2 = StorageLevel(True, True, False, False, 2)
 StorageLevel.OFF_HEAP = StorageLevel(True, True, True, False, 1)
+<<<<<<< HEAD
 
 """
 .. note:: The following four storage level constants are deprecated in 2.0, since the records
@@ -69,3 +70,5 @@ StorageLevel.MEMORY_AND_DISK_SER = StorageLevel.MEMORY_AND_DISK
 """.. note:: Deprecated in 2.0, use ``StorageLevel.MEMORY_AND_DISK`` instead."""
 StorageLevel.MEMORY_AND_DISK_SER_2 = StorageLevel.MEMORY_AND_DISK_2
 """.. note:: Deprecated in 2.0, use ``StorageLevel.MEMORY_AND_DISK_2`` instead."""
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da

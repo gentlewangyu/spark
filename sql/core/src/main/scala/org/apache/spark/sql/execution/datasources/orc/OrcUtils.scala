@@ -17,20 +17,29 @@
 
 package org.apache.spark.sql.execution.datasources.orc
 
+<<<<<<< HEAD
+=======
+import java.nio.charset.StandardCharsets.UTF_8
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import java.util.Locale
 
 import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
-import org.apache.orc.{OrcFile, Reader, TypeDescription}
+import org.apache.orc.{OrcFile, Reader, TypeDescription, Writer}
 
-import org.apache.spark.SparkException
+import org.apache.spark.{SPARK_VERSION_SHORT, SparkException}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.internal.Logging
+<<<<<<< HEAD
 import org.apache.spark.sql.SparkSession
+=======
+import org.apache.spark.sql.{SPARK_VERSION_METADATA_KEY, SparkSession}
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.catalyst.analysis.caseSensitiveResolution
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
+import org.apache.spark.sql.catalyst.util.quoteIdentifier
 import org.apache.spark.sql.types._
 
 object OrcUtils extends Logging {
@@ -119,6 +128,7 @@ object OrcUtils extends Logging {
         })
       } else {
         if (isCaseSensitive) {
+<<<<<<< HEAD
           Some(requiredSchema.fieldNames.map { name =>
             orcFieldNames.indexWhere(caseSensitiveResolution(_, name))
           })
@@ -127,21 +137,66 @@ object OrcUtils extends Logging {
           val caseInsensitiveOrcFieldMap =
             orcFieldNames.zipWithIndex.groupBy(_._1.toLowerCase(Locale.ROOT))
           Some(requiredSchema.fieldNames.map { requiredFieldName =>
+=======
+          Some(requiredSchema.fieldNames.zipWithIndex.map { case (name, idx) =>
+            if (orcFieldNames.indexWhere(caseSensitiveResolution(_, name)) != -1) {
+              idx
+            } else {
+              -1
+            }
+          })
+        } else {
+          // Do case-insensitive resolution only if in case-insensitive mode
+          val caseInsensitiveOrcFieldMap = orcFieldNames.groupBy(_.toLowerCase(Locale.ROOT))
+          Some(requiredSchema.fieldNames.zipWithIndex.map { case (requiredFieldName, idx) =>
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
             caseInsensitiveOrcFieldMap
               .get(requiredFieldName.toLowerCase(Locale.ROOT))
               .map { matchedOrcFields =>
                 if (matchedOrcFields.size > 1) {
                   // Need to fail if there is ambiguity, i.e. more than one field is matched.
+<<<<<<< HEAD
                   val matchedOrcFieldsString = matchedOrcFields.map(_._1).mkString("[", ", ", "]")
                   throw new RuntimeException(s"""Found duplicate field(s) "$requiredFieldName": """
                     + s"$matchedOrcFieldsString in case-insensitive mode")
                 } else {
                   matchedOrcFields.head._2
+=======
+                  val matchedOrcFieldsString = matchedOrcFields.mkString("[", ", ", "]")
+                  throw new RuntimeException(s"""Found duplicate field(s) "$requiredFieldName": """
+                    + s"$matchedOrcFieldsString in case-insensitive mode")
+                } else {
+                  idx
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
                 }
               }.getOrElse(-1)
           })
         }
       }
     }
+  }
+
+  /**
+   * Add a metadata specifying Spark version.
+   */
+  def addSparkVersionMetadata(writer: Writer): Unit = {
+    writer.addUserMetadata(SPARK_VERSION_METADATA_KEY, UTF_8.encode(SPARK_VERSION_SHORT))
+  }
+
+  /**
+   * Given a `StructType` object, this methods converts it to corresponding string representation
+   * in ORC.
+   */
+  def orcTypeDescriptionString(dt: DataType): String = dt match {
+    case s: StructType =>
+      val fieldTypes = s.fields.map { f =>
+        s"${quoteIdentifier(f.name)}:${orcTypeDescriptionString(f.dataType)}"
+      }
+      s"struct<${fieldTypes.mkString(",")}>"
+    case a: ArrayType =>
+      s"array<${orcTypeDescriptionString(a.elementType)}>"
+    case m: MapType =>
+      s"map<${orcTypeDescriptionString(m.keyType)},${orcTypeDescriptionString(m.valueType)}>"
+    case _ => dt.catalogString
   }
 }

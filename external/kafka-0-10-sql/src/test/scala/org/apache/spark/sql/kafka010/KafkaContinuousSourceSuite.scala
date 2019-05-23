@@ -20,7 +20,11 @@ package org.apache.spark.sql.kafka010
 import org.apache.kafka.clients.producer.ProducerRecord
 
 import org.apache.spark.sql.Dataset
+<<<<<<< HEAD
 import org.apache.spark.sql.execution.datasources.v2.StreamingDataSourceV2Relation
+=======
+import org.apache.spark.sql.execution.datasources.v2.ContinuousScanExec
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 import org.apache.spark.sql.execution.streaming.continuous.ContinuousTrigger
 import org.apache.spark.sql.streaming.Trigger
 
@@ -211,11 +215,21 @@ class KafkaContinuousSourceTopicDeletionSuite extends KafkaContinuousTest {
         testUtils.createTopic(topic2, partitions = 5)
         eventually(timeout(streamingTimeout)) {
           assert(
+<<<<<<< HEAD
             query.lastExecution.logical.collectFirst {
               case StreamingDataSourceV2Relation(_, _, _, r: KafkaContinuousReader) => r
             }.exists { r =>
               // Ensure the new topic is present and the old topic is gone.
               r.knownPartitions.exists(_.topic == topic2)
+=======
+            query.lastExecution.executedPlan.collectFirst {
+              case scan: ContinuousScanExec
+                if scan.stream.isInstanceOf[KafkaContinuousStream] =>
+                scan.stream.asInstanceOf[KafkaContinuousStream]
+            }.exists { stream =>
+              // Ensure the new topic is present and the old topic is gone.
+              stream.knownPartitions.exists(_.topic == topic2)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
             },
             s"query never reconfigured to new topic $topic2")
         }

@@ -17,6 +17,7 @@
 
 package test.org.apache.spark.sql.sources.v2;
 
+<<<<<<< HEAD
 import java.io.IOException;
 import java.util.List;
 
@@ -78,11 +79,38 @@ public class JavaSimpleDataSourceV2 implements DataSourceV2, ReadSupport {
     @Override
     public void close() throws IOException {
 
+=======
+import org.apache.spark.sql.sources.v2.Table;
+import org.apache.spark.sql.sources.v2.TableProvider;
+import org.apache.spark.sql.sources.v2.reader.*;
+import org.apache.spark.sql.util.CaseInsensitiveStringMap;
+
+public class JavaSimpleDataSourceV2 implements TableProvider {
+
+  class MyScanBuilder extends JavaSimpleScanBuilder {
+
+    @Override
+    public InputPartition[] planInputPartitions() {
+      InputPartition[] partitions = new InputPartition[2];
+      partitions[0] = new JavaRangeInputPartition(0, 5);
+      partitions[1] = new JavaRangeInputPartition(5, 10);
+      return partitions;
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     }
   }
 
   @Override
+<<<<<<< HEAD
   public DataSourceReader createReader(DataSourceOptions options) {
     return new Reader();
+=======
+  public Table getTable(CaseInsensitiveStringMap options) {
+    return new JavaSimpleBatchTable() {
+      @Override
+      public ScanBuilder newScanBuilder(CaseInsensitiveStringMap options) {
+        return new MyScanBuilder();
+      }
+    };
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   }
 }

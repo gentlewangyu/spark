@@ -67,7 +67,7 @@ class DataTypeWriteCompatibilitySuite extends SparkFunSuite {
   test("Check atomic types: write allowed only when casting is safe") {
     atomicTypes.foreach { w =>
       atomicTypes.foreach { r =>
-        if (Cast.canSafeCast(w, r)) {
+        if (Cast.canUpCast(w, r)) {
           assertAllowed(w, r, "t", s"Should allow writing $w to $r because cast is safe")
 
         } else {
@@ -373,7 +373,7 @@ class DataTypeWriteCompatibilitySuite extends SparkFunSuite {
   def assertAllowed(writeType: DataType, readType: DataType, name: String, desc: String): Unit = {
     assert(
       DataType.canWrite(writeType, readType, analysis.caseSensitiveResolution, name,
-        errMsg => fail(s"Should not produce errors but was called with: $errMsg")) === true, desc)
+        errMsg => fail(s"Should not produce errors but was called with: $errMsg")), desc)
   }
 
   def assertSingleError(

@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import com.google.common.base.Throwables;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,9 +98,7 @@ public class TransportRequestHandler extends MessageHandler<RequestMessage> {
 
   @Override
   public void handle(RequestMessage request) {
-    if (request instanceof ChunkFetchRequest) {
-      processFetchRequest((ChunkFetchRequest) request);
-    } else if (request instanceof RpcRequest) {
+    if (request instanceof RpcRequest) {
       processRpcRequest((RpcRequest) request);
     } else if (request instanceof OneWayMessage) {
       processOneWayMessage((OneWayMessage) request);
@@ -112,6 +111,7 @@ public class TransportRequestHandler extends MessageHandler<RequestMessage> {
     }
   }
 
+<<<<<<< HEAD
   private void processFetchRequest(final ChunkFetchRequest req) {
     if (logger.isTraceEnabled()) {
       logger.trace("Received req from {} to fetch block {}", getRemoteAddress(channel),
@@ -141,6 +141,8 @@ public class TransportRequestHandler extends MessageHandler<RequestMessage> {
     });
   }
 
+=======
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
   private void processStreamRequest(final StreamRequest req) {
     if (logger.isTraceEnabled()) {
       logger.trace("Received req from {} to fetch stream {}", getRemoteAddress(channel),

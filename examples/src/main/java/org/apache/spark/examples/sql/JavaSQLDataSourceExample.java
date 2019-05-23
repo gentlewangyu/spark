@@ -123,10 +123,22 @@ public class JavaSQLDataSourceExample {
       .option("header", "true")
       .load("examples/src/main/resources/people.csv");
     // $example off:manual_load_options_csv$
+<<<<<<< HEAD
+=======
+    // $example on:load_with_path_glob_filter$
+    Dataset<Row> partitionedUsersDF = spark.read().format("orc")
+      .option("pathGlobFilter", "*.orc")
+      .load("examples/src/main/resources/partitioned_users.orc");
+    // $example off:load_with_path_glob_filter$
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     // $example on:manual_save_options_orc$
     usersDF.write().format("orc")
       .option("orc.bloom.filter.columns", "favorite_color")
       .option("orc.dictionary.key.threshold", "1.0")
+<<<<<<< HEAD
+=======
+      .option("orc.column.encoding.direct", "name")
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       .save("users_with_options.orc");
     // $example off:manual_save_options_orc$
     // $example on:direct_sql$

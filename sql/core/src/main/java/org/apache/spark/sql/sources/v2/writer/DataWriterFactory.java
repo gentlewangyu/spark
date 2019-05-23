@@ -19,18 +19,32 @@ package org.apache.spark.sql.sources.v2.writer;
 
 import java.io.Serializable;
 
+<<<<<<< HEAD
 import org.apache.spark.annotation.InterfaceStability;
 
 /**
  * A factory of {@link DataWriter} returned by {@link DataSourceWriter#createWriterFactory()},
+=======
+import org.apache.spark.TaskContext;
+import org.apache.spark.annotation.Evolving;
+import org.apache.spark.sql.catalyst.InternalRow;
+
+/**
+ * A factory of {@link DataWriter} returned by {@link BatchWrite#createBatchWriterFactory()},
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
  * which is responsible for creating and initializing the actual data writer at executor side.
  *
  * Note that, the writer factory will be serialized and sent to executors, then the data writer
  * will be created on executors and do the actual writing. So {@link DataWriterFactory} must be
  * serializable and {@link DataWriter} doesn't need to be.
  */
+<<<<<<< HEAD
 @InterfaceStability.Evolving
 public interface DataWriterFactory<T> extends Serializable {
+=======
+@Evolving
+public interface DataWriterFactory extends Serializable {
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 
   /**
    * Returns a data writer to do the actual writing work. Note that, Spark will reuse the same data

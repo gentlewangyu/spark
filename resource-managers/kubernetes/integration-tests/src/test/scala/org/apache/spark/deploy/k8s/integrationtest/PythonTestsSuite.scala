@@ -16,8 +16,6 @@
  */
 package org.apache.spark.deploy.k8s.integrationtest
 
-import org.apache.spark.deploy.k8s.integrationtest.TestConfig.{getTestImageRepo, getTestImageTag}
-
 private[spark] trait PythonTestsSuite { k8sSuite: KubernetesSuite =>
 
   import PythonTestsSuite._
@@ -27,7 +25,11 @@ private[spark] trait PythonTestsSuite { k8sSuite: KubernetesSuite =>
     s"${getTestImageRepo}/spark-py:${getTestImageTag}"
   test("Run PySpark on simple pi.py example", k8sTestTag) {
     sparkAppConf
+<<<<<<< HEAD
       .set("spark.kubernetes.container.image", pySparkDockerImage)
+=======
+      .set("spark.kubernetes.container.image", pyImage)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     runSparkApplicationAndVerifyCompletion(
       appResource = PYSPARK_PI,
       mainClass = "",
@@ -41,7 +43,11 @@ private[spark] trait PythonTestsSuite { k8sSuite: KubernetesSuite =>
 
   test("Run PySpark with Python2 to test a pyfiles example", k8sTestTag) {
     sparkAppConf
+<<<<<<< HEAD
       .set("spark.kubernetes.container.image", pySparkDockerImage)
+=======
+      .set("spark.kubernetes.container.image", pyImage)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       .set("spark.kubernetes.pyspark.pythonVersion", "2")
     runSparkApplicationAndVerifyCompletion(
       appResource = PYSPARK_FILES,
@@ -59,7 +65,11 @@ private[spark] trait PythonTestsSuite { k8sSuite: KubernetesSuite =>
 
   test("Run PySpark with Python3 to test a pyfiles example", k8sTestTag) {
     sparkAppConf
+<<<<<<< HEAD
       .set("spark.kubernetes.container.image", pySparkDockerImage)
+=======
+      .set("spark.kubernetes.container.image", pyImage)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       .set("spark.kubernetes.pyspark.pythonVersion", "3")
     runSparkApplicationAndVerifyCompletion(
       appResource = PYSPARK_FILES,
@@ -77,7 +87,11 @@ private[spark] trait PythonTestsSuite { k8sSuite: KubernetesSuite =>
 
   test("Run PySpark with memory customization", k8sTestTag) {
     sparkAppConf
+<<<<<<< HEAD
       .set("spark.kubernetes.container.image", pySparkDockerImage)
+=======
+      .set("spark.kubernetes.container.image", pyImage)
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
       .set("spark.kubernetes.pyspark.pythonVersion", "3")
       .set("spark.kubernetes.memoryOverheadFactor", s"$memOverheadConstant")
       .set("spark.executor.pyspark.memory", s"${additionalMemory}m")

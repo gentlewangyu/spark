@@ -17,17 +17,20 @@
 
 package org.apache.spark
 
+import scala.concurrent.duration._
+
 import org.scalatest.Assertions
+import org.scalatest.concurrent.Eventually._
 
 import org.apache.spark.storage.StorageLevel
 
 class SparkContextInfoSuite extends SparkFunSuite with LocalSparkContext {
   test("getPersistentRDDs only returns RDDs that are marked as cached") {
     sc = new SparkContext("local", "test")
-    assert(sc.getPersistentRDDs.isEmpty === true)
+    assert(sc.getPersistentRDDs.isEmpty)
 
     val rdd = sc.makeRDD(Array(1, 2, 3, 4), 2)
-    assert(sc.getPersistentRDDs.isEmpty === true)
+    assert(sc.getPersistentRDDs.isEmpty)
 
     rdd.cache()
     assert(sc.getPersistentRDDs.size === 1)
@@ -58,10 +61,16 @@ class SparkContextInfoSuite extends SparkFunSuite with LocalSparkContext {
   test("getRDDStorageInfo only reports on RDDs that actually persist data") {
     sc = new SparkContext("local", "test")
     val rdd = sc.makeRDD(Array(1, 2, 3, 4), 2).cache()
-    assert(sc.getRDDStorageInfo.size === 0)
+    assert(sc.getRDDStorageInfo.length === 0)
     rdd.collect()
     sc.listenerBus.waitUntilEmpty(10000)
+<<<<<<< HEAD
     assert(sc.getRDDStorageInfo.size === 1)
+=======
+    eventually(timeout(10.seconds), interval(100.milliseconds)) {
+      assert(sc.getRDDStorageInfo.length === 1)
+    }
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     assert(sc.getRDDStorageInfo.head.isCached)
     assert(sc.getRDDStorageInfo.head.memSize > 0)
     assert(sc.getRDDStorageInfo.head.storageLevel === StorageLevel.MEMORY_ONLY)

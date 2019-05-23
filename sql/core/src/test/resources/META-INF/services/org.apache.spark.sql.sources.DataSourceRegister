@@ -9,6 +9,10 @@ org.apache.spark.sql.streaming.sources.FakeReadMicroBatchOnly
 org.apache.spark.sql.streaming.sources.FakeReadContinuousOnly
 org.apache.spark.sql.streaming.sources.FakeReadBothModes
 org.apache.spark.sql.streaming.sources.FakeReadNeitherMode
+<<<<<<< HEAD
 org.apache.spark.sql.streaming.sources.FakeWrite
+=======
+org.apache.spark.sql.streaming.sources.FakeWriteOnly
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
 org.apache.spark.sql.streaming.sources.FakeNoWrite
 org.apache.spark.sql.streaming.sources.FakeWriteV1Fallback

@@ -18,6 +18,7 @@ package org.apache.spark.sql.execution.benchmark
 
 /**
  * Benchmark to measure built-in data sources write performance.
+<<<<<<< HEAD
  * By default it measures 4 data source format: Parquet, ORC, JSON, CSV. Run it with spark-submit:
  *   spark-submit --class <this class> <spark sql test jar>
  * Or with sbt:
@@ -34,10 +35,38 @@ object BuiltInDataSourceWriteBenchmark extends DataSourceWriteBenchmark {
       Seq("Parquet", "ORC", "JSON", "CSV")
     } else {
       args
+=======
+ * To run this benchmark:
+ * {{{
+ *   By default it measures 4 data source format: Parquet, ORC, JSON, CSV.
+ *   1. without sbt: bin/spark-submit --class <this class>
+ *        --jars <spark core test jar>,<spark catalyst test jar> <spark sql test jar>
+ *   2. build/sbt "sql/test:runMain <this class>"
+ *   3. generate result: SPARK_GENERATE_BENCHMARK_FILES=1 build/sbt "sql/test:runMain <this class>"
+ *      Results will be written to "benchmarks/BuiltInDataSourceWriteBenchmark-results.txt".
+ *
+ *   To measure specified formats, run it with arguments.
+ *   1. without sbt:
+ *        bin/spark-submit --class <this class> <spark sql test jar> format1 [format2] [...]
+ *   2. build/sbt "sql/test:runMain <this class> format1 [format2] [...]"
+ *   3. generate result: SPARK_GENERATE_BENCHMARK_FILES=1 build/sbt
+ *        "sql/test:runMain <this class> format1 [format2] [...]"
+ *      Results will be written to "benchmarks/BuiltInDataSourceWriteBenchmark-results.txt".
+ * }}}
+ *
+ */
+object BuiltInDataSourceWriteBenchmark extends DataSourceWriteBenchmark {
+  override def runBenchmarkSuite(mainArgs: Array[String]): Unit = {
+    val formats: Seq[String] = if (mainArgs.isEmpty) {
+      Seq("Parquet", "ORC", "JSON", "CSV")
+    } else {
+      mainArgs
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     }
 
     spark.conf.set("spark.sql.parquet.compression.codec", "snappy")
     spark.conf.set("spark.sql.orc.compression.codec", "snappy")
+<<<<<<< HEAD
     /*
     Intel(R) Core(TM) i7-6920HQ CPU @ 2.90GHz
     Parquet writer benchmark:                Best/Avg Time(ms)    Rate(M/s)   Per Row(ns)   Relative
@@ -74,6 +103,13 @@ object BuiltInDataSourceWriteBenchmark extends DataSourceWriteBenchmark {
     */
     formats.foreach { format =>
       runBenchmark(format)
+=======
+
+    formats.foreach { format =>
+      runBenchmark(s"$format writer benchmark") {
+        runDataSourceBenchmark(format)
+      }
+>>>>>>> 5fae8f7b1d26fca3cbf663e46ca0da6d76c690da
     }
   }
 }
