@@ -29,7 +29,7 @@ import org.apache.spark.tags.DockerTest
 @DockerTest
 class PostgresIntegrationSuite extends DockerJDBCIntegrationSuite {
   override val db = new DatabaseOnDocker {
-    override val imageName = "postgres:9.4.5"
+    override val imageName = "postgres:12.0-alpine"
     override val env = Map(
       "POSTGRES_PASSWORD" -> "rootpass"
     )
@@ -37,7 +37,6 @@ class PostgresIntegrationSuite extends DockerJDBCIntegrationSuite {
     override val jdbcPort = 5432
     override def getJdbcUrl(ip: String, port: Int): String =
       s"jdbc:postgresql://$ip:$port/postgres?user=postgres&password=rootpass"
-    override def getStartupProcessName: Option[String] = None
   }
 
   override def dataPreparation(conn: Connection): Unit = {
@@ -205,5 +204,18 @@ class PostgresIntegrationSuite extends DockerJDBCIntegrationSuite {
          |OPTIONS (url '$jdbcUrl', query '$query')
        """.stripMargin.replaceAll("\n", " "))
     assert(sql("select c1, c3 from queryOption").collect.toSet == expectedResult)
+  }
+
+  test("write byte as smallint") {
+    sqlContext.createDataFrame(Seq((1.toByte, 2.toShort)))
+      .write.jdbc(jdbcUrl, "byte_to_smallint_test", new Properties)
+    val df = sqlContext.read.jdbc(jdbcUrl, "byte_to_smallint_test", new Properties)
+    val schema = df.schema
+    assert(schema.head.dataType == ShortType)
+    assert(schema(1).dataType == ShortType)
+    val rows = df.collect()
+    assert(rows.length === 1)
+    assert(rows(0).getShort(0) === 1)
+    assert(rows(0).getShort(1) === 2)
   }
 }

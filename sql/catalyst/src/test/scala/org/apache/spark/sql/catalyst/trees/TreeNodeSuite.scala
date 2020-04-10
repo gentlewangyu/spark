@@ -28,13 +28,14 @@ import org.json4s.jackson.JsonMethods
 import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.sql.catalyst.{FunctionIdentifier, InternalRow, TableIdentifier}
+import org.apache.spark.sql.catalyst.{AliasIdentifier, FunctionIdentifier, InternalRow, TableIdentifier}
 import org.apache.spark.sql.catalyst.catalog._
 import org.apache.spark.sql.catalyst.dsl.expressions.DslString
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.plans.{LeftOuter, NaturalJoin, SQLHelper}
-import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, Union}
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.plans.physical.{IdentityBroadcastMode, RoundRobinPartitioning, SinglePartition}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
@@ -80,6 +81,11 @@ case class SelfReferenceUDF(
     var config: Map[String, Any] = Map.empty[String, Any]) extends Function1[String, Boolean] {
   config += "self" -> this
   def apply(key: String): Boolean = config.contains(key)
+}
+
+case class FakeLeafPlan(child: LogicalPlan)
+  extends org.apache.spark.sql.catalyst.plans.logical.LeafNode {
+  override def output: Seq[Attribute] = child.output
 }
 
 class TreeNodeSuite extends SparkFunSuite with SQLHelper {
@@ -426,6 +432,30 @@ class TreeNodeSuite extends SparkFunSuite with SQLHelper {
         "product-class" -> JString(classOf[FunctionIdentifier].getName),
           "funcName" -> "function"))
 
+    // Converts AliasIdentifier to JSON
+    assertJSON(
+      AliasIdentifier("alias", Seq("ns1", "ns2")),
+      JObject(
+        "product-class" -> JString(classOf[AliasIdentifier].getName),
+          "name" -> "alias",
+          "qualifier" -> "[ns1, ns2]"))
+
+    // Converts SubqueryAlias to JSON
+    assertJSON(
+      SubqueryAlias("t1", JsonTestTreeNode("0")),
+      List(
+        JObject(
+          "class" -> classOf[SubqueryAlias].getName,
+          "num-children" -> 1,
+          "identifier" -> JObject("product-class" -> JString(classOf[AliasIdentifier].getName),
+            "name" -> "t1",
+            "qualifier" -> JArray(Nil)),
+          "child" -> 0),
+        JObject(
+          "class" -> classOf[JsonTestTreeNode].getName,
+          "num-children" -> 0,
+          "arg" -> "0")))
+
     // Converts BucketSpec to JSON
     assertJSON(
       BucketSpec(1, Seq("bucket"), Seq("sort")),
@@ -565,7 +595,8 @@ class TreeNodeSuite extends SparkFunSuite with SQLHelper {
   }
 
   test("toJSON should not throws java.lang.StackOverflowError") {
-    val udf = ScalaUDF(SelfReferenceUDF(), BooleanType, Seq("col1".attr), false :: Nil)
+    val udf = ScalaUDF(SelfReferenceUDF(), BooleanType, Seq("col1".attr),
+      Option(ExpressionEncoder[String]()) :: Nil)
     // Should not throw java.lang.StackOverflowError
     udf.toJSON
   }
@@ -622,31 +653,33 @@ class TreeNodeSuite extends SparkFunSuite with SQLHelper {
   }
 
   test("tags will be carried over after copy & transform") {
+    val tag = TreeNodeTag[String]("test")
+
     withClue("makeCopy") {
       val node = Dummy(None)
-      node.tags += TreeNodeTagName("test") -> "a"
+      node.setTagValue(tag, "a")
       val copied = node.makeCopy(Array(Some(Literal(1))))
-      assert(copied.tags(TreeNodeTagName("test")) == "a")
+      assert(copied.getTagValue(tag) == Some("a"))
     }
 
     def checkTransform(
         sameTypeTransform: Expression => Expression,
         differentTypeTransform: Expression => Expression): Unit = {
       val child = Dummy(None)
-      child.tags += TreeNodeTagName("test") -> "child"
+      child.setTagValue(tag, "child")
       val node = Dummy(Some(child))
-      node.tags += TreeNodeTagName("test") -> "parent"
+      node.setTagValue(tag, "parent")
 
       val transformed = sameTypeTransform(node)
       // Both the child and parent keep the tags
-      assert(transformed.tags(TreeNodeTagName("test")) == "parent")
-      assert(transformed.children.head.tags(TreeNodeTagName("test")) == "child")
+      assert(transformed.getTagValue(tag) == Some("parent"))
+      assert(transformed.children.head.getTagValue(tag) == Some("child"))
 
       val transformed2 = differentTypeTransform(node)
       // Both the child and parent keep the tags, even if we transform the node to a new one of
       // different type.
-      assert(transformed2.tags(TreeNodeTagName("test")) == "parent")
-      assert(transformed2.children.head.tags.contains(TreeNodeTagName("test")))
+      assert(transformed2.getTagValue(tag) == Some("parent"))
+      assert(transformed2.children.head.getTagValue(tag) == Some("child"))
     }
 
     withClue("transformDown") {
@@ -670,5 +703,35 @@ class TreeNodeSuite extends SparkFunSuite with SQLHelper {
 
         })
     }
+  }
+
+  test("clone") {
+    def assertDifferentInstance[T <: TreeNode[T]](before: TreeNode[T], after: TreeNode[T]): Unit = {
+      assert(before.ne(after) && before == after)
+      before.children.zip(after.children).foreach { case (beforeChild, afterChild) =>
+        assertDifferentInstance(
+          beforeChild.asInstanceOf[TreeNode[T]],
+          afterChild.asInstanceOf[TreeNode[T]])
+      }
+    }
+
+    // Empty constructor
+    val rowNumber = RowNumber()
+    assertDifferentInstance(rowNumber, rowNumber.clone())
+
+    // Overridden `makeCopy`
+    val oneRowRelation = OneRowRelation()
+    assertDifferentInstance(oneRowRelation, oneRowRelation.clone())
+
+    // Multi-way operators
+    val intersect =
+      Intersect(oneRowRelation, Union(Seq(oneRowRelation, oneRowRelation)), isAll = false)
+    assertDifferentInstance(intersect, intersect.clone())
+
+    // Leaf node with an inner child
+    val leaf = FakeLeafPlan(intersect)
+    val leafCloned = leaf.clone()
+    assertDifferentInstance(leaf, leafCloned)
+    assert(leaf.child.eq(leafCloned.asInstanceOf[FakeLeafPlan].child))
   }
 }
